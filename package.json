@@ -1,0 +1,43 @@
+{
+  "name": "ops-personal-m365-mcp",
+  "version": "0.1.0",
+  "description": "Personal M365 MCP for AI assistants - delegated auth for email, calendar, tasks, OneDrive",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "ops-personal-m365-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "login": "tsx src/auth/login.ts"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.2.0",
+    "@azure/msal-node": "^2.9.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.15.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/awolve/ops-personal-m365-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "microsoft365",
+    "outlook",
+    "calendar",
+    "ai-assistant",
+    "claude"
+  ]
+}
