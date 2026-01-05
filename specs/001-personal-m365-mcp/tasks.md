@@ -51,7 +51,7 @@
 - [x] Add to awolve-general plugin (MCP config in plugin.json)
 - [x] Add credentials to `.env.awolve_plugins` (central credentials file)
 - [x] Create skill/command for using this MCP (`/personal-m365-login`)
-- [ ] Test with Claude Code
+- [x] Test with Claude Code
 - [x] Document employee onboarding process (ops-handbook how-to guide)
 
 ### Phase 9: Enhancements (Future)
@@ -65,7 +65,7 @@
 
 - [x] Device code login flow
 - [ ] Token refresh after expiry
-- [ ] List inbox emails
+- [x] List inbox emails
 - [ ] Read specific email
 - [ ] Search emails
 - [ ] Send test email (to self)

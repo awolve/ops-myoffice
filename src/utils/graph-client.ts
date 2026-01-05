@@ -46,8 +46,8 @@ export async function graphRequest<T>(
     throw new Error(`Graph API error (${response.status}): ${errorMessage}`);
   }
 
-  // Handle 204 No Content
-  if (response.status === 204) {
+  // Handle 204 No Content and 202 Accepted (e.g., sendMail)
+  if (response.status === 204 || response.status === 202) {
     return {} as T;
   }
 
