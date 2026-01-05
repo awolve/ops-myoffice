@@ -38,6 +38,10 @@ export const createFolderSchema = z.object({
   parentPath: z.string().optional().describe('Parent folder path. Default: root'),
 });
 
+export const listSharedWithMeSchema = z.object({
+  maxItems: z.number().optional().describe('Maximum number of items. Default: 50'),
+});
+
 // Tool implementations
 export async function listFiles(params: z.infer<typeof listFilesSchema>) {
   const { path = '', maxItems = 50 } = params;
@@ -154,4 +158,39 @@ export async function createFolder(params: z.infer<typeof createFolderSchema>) {
     name: created.name,
     webUrl: created.webUrl,
   };
+}
+
+interface SharedDriveItem extends DriveItem {
+  remoteItem?: {
+    id: string;
+    name: string;
+    parentReference?: {
+      driveId: string;
+      driveType: string;
+    };
+  };
+}
+
+export async function listSharedWithMe(params: z.infer<typeof listSharedWithMeSchema>) {
+  const { maxItems = 50 } = params;
+
+  const path = `/me/drive/sharedWithMe?$select=id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,remoteItem&$top=${maxItems}`;
+
+  const items = await graphList<SharedDriveItem>(path, { maxItems });
+
+  return items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    type: item.folder ? 'folder' : 'file',
+    size: item.size,
+    mimeType: item.file?.mimeType,
+    childCount: item.folder?.childCount,
+    created: item.createdDateTime,
+    modified: item.lastModifiedDateTime,
+    webUrl: item.webUrl,
+    // Include remote item info for accessing the file via its source drive
+    remoteDriveId: item.remoteItem?.parentReference?.driveId,
+    remoteDriveType: item.remoteItem?.parentReference?.driveType,
+    remoteItemId: item.remoteItem?.id,
+  }));
 }

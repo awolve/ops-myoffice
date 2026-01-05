@@ -12,6 +12,7 @@ import * as mail from './tools/mail.js';
 import * as calendar from './tools/calendar.js';
 import * as tasks from './tools/tasks.js';
 import * as onedrive from './tools/onedrive.js';
+import * as sharepoint from './tools/sharepoint.js';
 import * as contacts from './tools/contacts.js';
 
 const server = new Server(
@@ -297,6 +298,102 @@ const TOOLS = [
       required: ['name'],
     },
   },
+  {
+    name: 'onedrive_shared_with_me',
+    description: 'List files and folders shared with you by others',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        maxItems: { type: 'number', description: 'Max items. Default: 50' },
+      },
+    },
+  },
+
+  // SharePoint
+  {
+    name: 'sharepoint_list_sites',
+    description: 'List SharePoint sites you follow or search for sites',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        maxItems: { type: 'number', description: 'Max sites. Default: 50' },
+        search: { type: 'string', description: 'Search query to find sites' },
+      },
+    },
+  },
+  {
+    name: 'sharepoint_get_site',
+    description: 'Get details of a specific SharePoint site',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        siteId: { type: 'string', description: 'Site ID or hostname:path (e.g., "contoso.sharepoint.com:/sites/team")' },
+      },
+      required: ['siteId'],
+    },
+  },
+  {
+    name: 'sharepoint_list_drives',
+    description: 'List document libraries in a SharePoint site',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        siteId: { type: 'string', description: 'Site ID' },
+        maxItems: { type: 'number', description: 'Max drives. Default: 50' },
+      },
+      required: ['siteId'],
+    },
+  },
+  {
+    name: 'sharepoint_list_files',
+    description: 'List files in a SharePoint document library (drive)',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        driveId: { type: 'string', description: 'Drive ID from sharepoint_list_drives' },
+        path: { type: 'string', description: 'Folder path. Default: root' },
+        maxItems: { type: 'number', description: 'Max items. Default: 50' },
+      },
+      required: ['driveId'],
+    },
+  },
+  {
+    name: 'sharepoint_get_file',
+    description: 'Get metadata for a file in SharePoint',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        driveId: { type: 'string', description: 'Drive ID' },
+        path: { type: 'string', description: 'File path' },
+      },
+      required: ['driveId', 'path'],
+    },
+  },
+  {
+    name: 'sharepoint_read_file',
+    description: 'Read content of a text file from SharePoint (max 1MB)',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        driveId: { type: 'string', description: 'Drive ID' },
+        path: { type: 'string', description: 'File path' },
+      },
+      required: ['driveId', 'path'],
+    },
+  },
+  {
+    name: 'sharepoint_search_files',
+    description: 'Search for files in a SharePoint document library',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        driveId: { type: 'string', description: 'Drive ID' },
+        query: { type: 'string', description: 'Search query' },
+        maxItems: { type: 'number', description: 'Max results. Default: 25' },
+      },
+      required: ['driveId', 'query'],
+    },
+  },
 
   // Contacts
   {
@@ -426,6 +523,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'onedrive_create_folder':
         result = await onedrive.createFolder(onedrive.createFolderSchema.parse(args));
+        break;
+      case 'onedrive_shared_with_me':
+        result = await onedrive.listSharedWithMe(onedrive.listSharedWithMeSchema.parse(args));
+        break;
+
+      // SharePoint
+      case 'sharepoint_list_sites':
+        result = await sharepoint.listSites(sharepoint.listSitesSchema.parse(args));
+        break;
+      case 'sharepoint_get_site':
+        result = await sharepoint.getSite(sharepoint.getSiteSchema.parse(args));
+        break;
+      case 'sharepoint_list_drives':
+        result = await sharepoint.listDrives(sharepoint.listDrivesSchema.parse(args));
+        break;
+      case 'sharepoint_list_files':
+        result = await sharepoint.listDriveFiles(sharepoint.listDriveFilesSchema.parse(args));
+        break;
+      case 'sharepoint_get_file':
+        result = await sharepoint.getDriveFile(sharepoint.getDriveFileSchema.parse(args));
+        break;
+      case 'sharepoint_read_file':
+        result = await sharepoint.readDriveFile(sharepoint.readDriveFileSchema.parse(args));
+        break;
+      case 'sharepoint_search_files':
+        result = await sharepoint.searchDriveFiles(sharepoint.searchDriveFilesSchema.parse(args));
         break;
 
       // Contacts

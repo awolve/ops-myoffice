@@ -31,6 +31,7 @@ export const DEFAULT_CONFIG: AuthConfig = {
     'https://graph.microsoft.com/Calendars.ReadWrite',
     'https://graph.microsoft.com/Tasks.ReadWrite',
     'https://graph.microsoft.com/Files.ReadWrite',
+    'https://graph.microsoft.com/Sites.Read.All',
     'https://graph.microsoft.com/Contacts.Read',
     'https://graph.microsoft.com/User.Read',
     'offline_access',
