@@ -37,20 +37,20 @@
 ## Remaining Tasks
 
 ### Phase 6: Documentation & Polish
-- [ ] Create README.md with setup instructions
-- [ ] Add .env.example file
-- [ ] Add .gitignore
+- [x] Create README.md with setup instructions
+- [x] Add .gitignore
 - [ ] Initial commit and push
 
 ### Phase 7: Azure AD Setup
-- [ ] Document Azure AD app registration steps
-- [ ] Create app registration in Awolve tenant
-- [ ] Configure delegated permissions
-- [ ] Test authentication flow
+- [x] Document Azure AD app registration steps (in README)
+- [x] Create app registration in Awolve tenant (cc36adf2-3af2-4f8b-be5b-0479aa886250)
+- [x] Configure delegated permissions (8 Graph scopes with admin consent)
+- [x] Test authentication flow
 
 ### Phase 8: Integration
-- [ ] Add to awolve-general plugin
-- [ ] Create `/setup-personal-m365` skill
+- [x] Add to awolve-general plugin (MCP config in plugin.json)
+- [x] Add credentials to `.env.awolve_plugins` (central credentials file)
+- [x] Create skill/command for using this MCP (`/personal-m365-login`)
 - [ ] Test with Claude Code
 - [ ] Document employee onboarding process
 
@@ -63,7 +63,7 @@
 
 ## Test Checklist
 
-- [ ] Device code login flow
+- [x] Device code login flow
 - [ ] Token refresh after expiry
 - [ ] List inbox emails
 - [ ] Read specific email

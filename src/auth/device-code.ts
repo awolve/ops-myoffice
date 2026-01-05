@@ -29,9 +29,9 @@ export async function authenticateWithDeviceCode(): Promise<TokenCache> {
     },
   };
 
-  const result: AuthenticationResult = await pca.acquireTokenByDeviceCode(deviceCodeRequest);
+  const result = await pca.acquireTokenByDeviceCode(deviceCodeRequest);
 
-  if (!result.accessToken) {
+  if (!result || !result.accessToken) {
     throw new Error('Failed to acquire access token');
   }
 

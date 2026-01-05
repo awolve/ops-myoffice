@@ -51,7 +51,7 @@ export async function graphRequest<T>(
     return {} as T;
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 export async function graphList<T>(
@@ -63,11 +63,11 @@ export async function graphList<T>(
   let nextLink: string | undefined = path;
 
   while (nextLink && items.length < maxItems) {
-    const url = nextLink.startsWith('http')
+    const url: string = nextLink.startsWith('http')
       ? nextLink.replace(GRAPH_BASE_URL, '')
       : nextLink;
 
-    const response = await graphRequest<GraphResponse<T>>(url);
+    const response: GraphResponse<T> = await graphRequest<GraphResponse<T>>(url);
 
     if (response.value) {
       items.push(...response.value);

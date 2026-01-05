@@ -29,3 +29,6 @@ coverage/
 
 # Token cache (should never be committed)
 token.json
+
+# Claude
+.claude/logs/
