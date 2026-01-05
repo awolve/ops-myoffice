@@ -92,6 +92,18 @@ const TOOLS = [
       required: ['messageId'],
     },
   },
+  {
+    name: 'mail_mark_read',
+    description: 'Mark an email as read or unread',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        messageId: { type: 'string', description: 'The message ID' },
+        isRead: { type: 'boolean', description: 'Set to false to mark as unread. Default: true' },
+      },
+      required: ['messageId'],
+    },
+  },
 
   // Calendar
   {
@@ -469,6 +481,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'mail_delete':
         result = await mail.deleteMail(mail.deleteMailSchema.parse(args));
+        break;
+      case 'mail_mark_read':
+        result = await mail.markAsRead(mail.markAsReadSchema.parse(args));
         break;
 
       // Calendar

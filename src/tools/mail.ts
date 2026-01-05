@@ -53,6 +53,11 @@ export const deleteMailSchema = z.object({
   messageId: z.string().describe('The ID of the message to delete'),
 });
 
+export const markAsReadSchema = z.object({
+  messageId: z.string().describe('The ID of the message to mark as read'),
+  isRead: z.boolean().optional().describe('Set to false to mark as unread. Default: true'),
+});
+
 // Tool implementations
 export async function listMails(params: z.infer<typeof listMailsSchema>) {
   const { folder = 'inbox', maxItems = 25, unreadOnly = false } = params;
@@ -153,4 +158,15 @@ export async function deleteMail(params: z.infer<typeof deleteMailSchema>) {
   });
 
   return { success: true, message: 'Email deleted' };
+}
+
+export async function markAsRead(params: z.infer<typeof markAsReadSchema>) {
+  const { messageId, isRead = true } = params;
+
+  await graphRequest(`/me/messages/${messageId}`, {
+    method: 'PATCH',
+    body: { isRead },
+  });
+
+  return { success: true, message: isRead ? 'Email marked as read' : 'Email marked as unread' };
 }
