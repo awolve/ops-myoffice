@@ -39,7 +39,7 @@
 ### Phase 6: Documentation & Polish
 - [x] Create README.md with setup instructions
 - [x] Add .gitignore
-- [ ] Initial commit and push
+- [x] Initial commit and push
 
 ### Phase 7: Azure AD Setup
 - [x] Document Azure AD app registration steps (in README)
@@ -52,7 +52,7 @@
 - [x] Add credentials to `.env.awolve_plugins` (central credentials file)
 - [x] Create skill/command for using this MCP (`/personal-m365-login`)
 - [ ] Test with Claude Code
-- [ ] Document employee onboarding process
+- [x] Document employee onboarding process (ops-handbook how-to guide)
 
 ### Phase 9: Enhancements (Future)
 - [ ] Add mail reply/forward tools
