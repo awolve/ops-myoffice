@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+// Debug: Log environment on startup
+console.error('=== MCP Server Starting ===');
+console.error('M365_CLIENT_ID:', process.env.M365_CLIENT_ID ? `SET (${process.env.M365_CLIENT_ID.substring(0, 8)}...)` : 'NOT SET');
+console.error('M365_TENANT_ID:', process.env.M365_TENANT_ID || 'NOT SET (will use "common")');
+console.error('===========================');
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -451,6 +457,14 @@ const TOOLS = [
       properties: {},
     },
   },
+  {
+    name: 'debug_info',
+    description: 'Get debug information about the MCP server configuration',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+    },
+  },
 ];
 
 // Handler for listing tools
@@ -582,6 +596,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = {
           authenticated: await isAuthenticated(),
           user: getCurrentUser(),
+        };
+        break;
+
+      case 'debug_info':
+        result = {
+          server: {
+            name: 'ops-personal-m365-mcp',
+            version: '0.1.0',
+            nodeVersion: process.version,
+            platform: process.platform,
+            pid: process.pid,
+          },
+          environment: {
+            M365_CLIENT_ID: process.env.M365_CLIENT_ID ? `SET (${process.env.M365_CLIENT_ID.substring(0, 8)}...)` : 'NOT SET',
+            M365_TENANT_ID: process.env.M365_TENANT_ID || 'NOT SET (using "common")',
+          },
+          auth: {
+            authenticated: await isAuthenticated(),
+            user: getCurrentUser(),
+            tokenCachePath: '~/.config/ops-personal-m365-mcp/token.json',
+          },
+          tools: TOOLS.length,
         };
         break;
 
