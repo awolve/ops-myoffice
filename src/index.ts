@@ -6,7 +6,14 @@ const SERVER_START_TIME = new Date();
 // Debug: Log environment on startup
 console.error('=== MCP Server Starting ===');
 console.error('Started at:', SERVER_START_TIME.toISOString());
-console.error('M365_CLIENT_ID:', process.env.M365_CLIENT_ID ? `SET (${process.env.M365_CLIENT_ID.substring(0, 8)}...)` : 'NOT SET');
+const clientId = process.env.M365_CLIENT_ID;
+if (!clientId) {
+  console.error('M365_CLIENT_ID: NOT SET');
+} else if (clientId.startsWith('${') || clientId.includes('$M365')) {
+  console.error('M365_CLIENT_ID: UNRESOLVED PLACEHOLDER:', clientId);
+} else {
+  console.error('M365_CLIENT_ID: SET (' + clientId.substring(0, 8) + '...)');
+}
 console.error('M365_TENANT_ID:', process.env.M365_TENANT_ID || 'NOT SET (will use "common")');
 console.error('===========================');
 
@@ -622,7 +629,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             uptime: uptimeStr,
           },
           environment: {
-            M365_CLIENT_ID: process.env.M365_CLIENT_ID ? `SET (${process.env.M365_CLIENT_ID.substring(0, 8)}...)` : 'NOT SET',
+            M365_CLIENT_ID: (() => {
+              const val = process.env.M365_CLIENT_ID;
+              if (!val) return 'NOT SET';
+              if (val.startsWith('${') || val.includes('$M365')) return `UNRESOLVED PLACEHOLDER: ${val}`;
+              return `SET (${val.substring(0, 8)}...)`;
+            })(),
             M365_TENANT_ID: process.env.M365_TENANT_ID || 'NOT SET (using "common")',
           },
           auth: {
