@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
+// Capture startup time for uptime tracking
+const SERVER_START_TIME = new Date();
+
 // Debug: Log environment on startup
 console.error('=== MCP Server Starting ===');
+console.error('Started at:', SERVER_START_TIME.toISOString());
 console.error('M365_CLIENT_ID:', process.env.M365_CLIENT_ID ? `SET (${process.env.M365_CLIENT_ID.substring(0, 8)}...)` : 'NOT SET');
 console.error('M365_TENANT_ID:', process.env.M365_TENANT_ID || 'NOT SET (will use "common")');
 console.error('===========================');
@@ -600,6 +604,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
 
       case 'debug_info':
+        const uptimeMs = Date.now() - SERVER_START_TIME.getTime();
+        const uptimeSec = Math.floor(uptimeMs / 1000);
+        const hours = Math.floor(uptimeSec / 3600);
+        const minutes = Math.floor((uptimeSec % 3600) / 60);
+        const seconds = uptimeSec % 60;
+        const uptimeStr = `${hours}h ${minutes}m ${seconds}s`;
+
         result = {
           server: {
             name: 'ops-personal-m365-mcp',
@@ -607,6 +618,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             nodeVersion: process.version,
             platform: process.platform,
             pid: process.pid,
+            startedAt: SERVER_START_TIME.toISOString(),
+            uptime: uptimeStr,
           },
           environment: {
             M365_CLIENT_ID: process.env.M365_CLIENT_ID ? `SET (${process.env.M365_CLIENT_ID.substring(0, 8)}...)` : 'NOT SET',
