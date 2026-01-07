@@ -78,9 +78,8 @@ export async function listTasks(params: z.infer<typeof listTasksSchema>) {
 
   const actualListId = listId || (await getDefaultListId());
 
-  // Note: To Do API doesn't support combining $orderby with $filter well
-  // So we fetch all and filter client-side if needed
-  const path = `/me/todo/lists/${actualListId}/tasks?$select=id,title,status,importance,dueDateTime,createdDateTime&$top=${maxItems}`;
+  // Note: To Do API has limited OData support - keep query simple
+  const path = `/me/todo/lists/${actualListId}/tasks?$top=${maxItems}`;
 
   let tasks = await graphList<Task>(path, { maxItems });
 
