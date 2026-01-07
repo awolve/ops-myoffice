@@ -38,7 +38,7 @@ export async function getAccessToken(): Promise<string> {
       console.error('[Auth] Please re-authenticate to migrate to new cache format.');
     }
     throw new Error(
-      'Not authenticated. Please run "npm run login" in the ops-personal-m365-mcp directory.'
+      'Not authenticated. Please run "npm run login" in the myoffice-mcp directory.'
     );
   }
 
@@ -65,7 +65,7 @@ export async function getAccessToken(): Promise<string> {
 
     throw new Error(
       `Token acquisition failed: ${errorMessage}. ` +
-      `Please re-authenticate by running 'npm run login' in the ops-personal-m365-mcp directory.`
+      `Please re-authenticate by running 'npm run login' in the myoffice-mcp directory.`
     );
   }
 }

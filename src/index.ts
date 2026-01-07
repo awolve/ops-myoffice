@@ -37,7 +37,7 @@ console.error('===========================');
 
 const server = new Server(
   {
-    name: 'ops-personal-m365-mcp',
+    name: 'myoffice-mcp',
     version: VERSION,
   },
   {
@@ -670,7 +670,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         result = {
           server: {
-            name: 'ops-personal-m365-mcp',
+            name: 'myoffice-mcp',
             version: VERSION,
             nodeVersion: process.version,
             platform: process.platform,
@@ -690,7 +690,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           auth: {
             authenticated: await isAuthenticated(),
             user: await getCurrentUser(),
-            tokenCachePath: '~/.config/ops-personal-m365-mcp/msal-cache.json',
+            tokenCachePath: '~/.config/myoffice-mcp/msal-cache.json',
           },
           graphApiTest: graphTest,
           tools: TOOLS.length,

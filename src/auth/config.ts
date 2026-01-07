@@ -38,8 +38,8 @@ export const DEFAULT_CONFIG: AuthConfig = {
   ],
 };
 
-const TOKEN_FILE = join(homedir(), '.config', 'ops-personal-m365-mcp', 'token.json');
-export const MSAL_CACHE_FILE = join(homedir(), '.config', 'ops-personal-m365-mcp', 'msal-cache.json');
+const TOKEN_FILE = join(homedir(), '.config', 'myoffice-mcp', 'token.json');
+export const MSAL_CACHE_FILE = join(homedir(), '.config', 'myoffice-mcp', 'msal-cache.json');
 
 export function getTokenCache(): TokenCache | null {
   try {

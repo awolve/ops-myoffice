@@ -1,4 +1,4 @@
-# Personal M365 MCP
+# MyOffice MCP
 
 A lightweight MCP (Model Context Protocol) server for personal Microsoft 365 access, designed for AI assistants like Claude Code.
 
@@ -21,8 +21,8 @@ Unlike admin-focused M365 tools, this uses **delegated authentication** - users 
 ## Installation
 
 ```bash
-git clone https://github.com/awolve/ops-personal-m365-mcp.git
-cd ops-personal-m365-mcp
+git clone https://github.com/awolve/ops-myoffice.git
+cd ops-myoffice
 npm install
 npm run build
 ```
@@ -82,7 +82,7 @@ https://microsoft.com/devicelogin and enter the code XXXXXXXX
 ========================================
 ```
 
-After signing in, your token is cached at `~/.config/ops-personal-m365-mcp/token.json`
+After signing in, your token is cached at `~/.config/myoffice-mcp/token.json`
 
 ## Usage with Claude Code
 
@@ -93,7 +93,7 @@ Add to your Claude Code MCP settings:
   "mcpServers": {
     "personal-m365": {
       "command": "node",
-      "args": ["/path/to/ops-personal-m365-mcp/dist/index.js"],
+      "args": ["/path/to/ops-myoffice/dist/index.js"],
       "env": {
         "M365_CLIENT_ID": "your-client-id"
       }

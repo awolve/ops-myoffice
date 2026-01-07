@@ -1,4 +1,4 @@
-# Personal M365 MCP Server
+# MyOffice MCP Server
 
 ## Overview
 
@@ -39,7 +39,7 @@ src/
 ## Authentication
 
 - Device code flow for initial authentication (`npm run login`)
-- Tokens cached at `~/.config/ops-personal-m365-mcp/token.json`
+- Tokens cached at `~/.config/myoffice-mcp/token.json`
 - Requires Azure AD app registration with delegated permissions
 - Environment variables: `M365_CLIENT_ID` (required), `M365_TENANT_ID` (optional, defaults to "common")
 

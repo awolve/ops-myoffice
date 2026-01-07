@@ -1,11 +1,11 @@
 {
-  "name": "ops-personal-m365-mcp",
-  "version": "0.4.2",
+  "name": "myoffice-mcp",
+  "version": "0.5.0",
   "description": "Personal M365 MCP for AI assistants - delegated auth for email, calendar, tasks, OneDrive",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "ops-personal-m365-mcp": "dist/index.js"
+    "myoffice-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -30,7 +30,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/awolve/ops-personal-m365-mcp.git"
+    "url": "https://github.com/awolve/ops-myoffice.git"
   },
   "keywords": [
     "mcp",
