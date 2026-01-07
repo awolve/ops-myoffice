@@ -35,6 +35,7 @@ export async function getAccessToken(): Promise<string> {
   }
 
   // Token expired, try silent refresh
+  console.error('[Auth] Token expired, attempting silent refresh...');
   try {
     const pca = getMsalInstance();
 
@@ -51,6 +52,7 @@ export async function getAccessToken(): Promise<string> {
 
     const result: AuthenticationResult = await pca.acquireTokenSilent(silentRequest);
 
+    console.error('[Auth] Silent refresh successful');
     const newCache: TokenCache = {
       accessToken: result.accessToken,
       refreshToken: '',
@@ -60,10 +62,19 @@ export async function getAccessToken(): Promise<string> {
 
     saveTokenCache(newCache);
     return result.accessToken;
-  } catch {
-    // Silent refresh failed, need interactive auth
-    const newCache = await authenticateWithDeviceCode();
-    return newCache.accessToken;
+  } catch (error) {
+    // Silent refresh failed - log the actual error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Auth] Silent refresh FAILED:', errorMessage);
+    console.error('[Auth] Token has expired and cannot be refreshed automatically.');
+    console.error('[Auth] Please re-authenticate by running: npm run login');
+
+    // Don't call authenticateWithDeviceCode() - it will hang in MCP context
+    // Instead, throw an error so the user knows they need to re-auth
+    throw new Error(
+      `Token expired and refresh failed: ${errorMessage}. ` +
+      `Please re-authenticate by running 'npm run login' in the ops-personal-m365-mcp directory.`
+    );
   }
 }
 
