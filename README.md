@@ -91,7 +91,7 @@ Add to your Claude Code MCP settings:
 ```json
 {
   "mcpServers": {
-    "personal-m365": {
+    "myoffice-mcp": {
       "command": "node",
       "args": ["/path/to/ops-myoffice/dist/index.js"],
       "env": {

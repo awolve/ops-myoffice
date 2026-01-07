@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
-const SIGNATURE_FILE = join(homedir(), '.config', 'ops-personal-m365-mcp', 'signature.html');
+const SIGNATURE_FILE = join(homedir(), '.config', 'myoffice-mcp', 'signature.html');
 
 export function getSignature(): string | null {
   try {
