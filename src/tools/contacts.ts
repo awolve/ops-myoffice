@@ -28,6 +28,27 @@ export const getContactSchema = z.object({
   contactId: z.string().describe('The ID of the contact to retrieve'),
 });
 
+export const createContactSchema = z.object({
+  givenName: z.string().optional().describe('First name'),
+  surname: z.string().optional().describe('Last name'),
+  email: z.string().optional().describe('Email address'),
+  mobilePhone: z.string().optional().describe('Mobile phone number'),
+  businessPhone: z.string().optional().describe('Business phone number'),
+  companyName: z.string().optional().describe('Company name'),
+  jobTitle: z.string().optional().describe('Job title'),
+});
+
+export const updateContactSchema = z.object({
+  contactId: z.string().describe('The ID of the contact to update'),
+  givenName: z.string().optional().describe('First name'),
+  surname: z.string().optional().describe('Last name'),
+  email: z.string().optional().describe('Email address'),
+  mobilePhone: z.string().optional().describe('Mobile phone number'),
+  businessPhone: z.string().optional().describe('Business phone number'),
+  companyName: z.string().optional().describe('Company name'),
+  jobTitle: z.string().optional().describe('Job title'),
+});
+
 // Tool implementations
 export async function listContacts(params: z.infer<typeof listContactsSchema>) {
   const { maxItems = 50 } = params;
@@ -83,5 +104,61 @@ export async function getContact(params: z.infer<typeof getContactSchema>) {
     mobilePhone: contact.mobilePhone,
     company: contact.companyName,
     title: contact.jobTitle,
+  };
+}
+
+export async function createContact(params: z.infer<typeof createContactSchema>) {
+  const { givenName, surname, email, mobilePhone, businessPhone, companyName, jobTitle } = params;
+
+  const body: Record<string, unknown> = {};
+
+  if (givenName) body.givenName = givenName;
+  if (surname) body.surname = surname;
+  if (email) {
+    body.emailAddresses = [{ address: email, name: `${givenName || ''} ${surname || ''}`.trim() || email }];
+  }
+  if (mobilePhone) body.mobilePhone = mobilePhone;
+  if (businessPhone) body.businessPhones = [businessPhone];
+  if (companyName) body.companyName = companyName;
+  if (jobTitle) body.jobTitle = jobTitle;
+
+  const contact = await graphRequest<Contact>('/me/contacts', {
+    method: 'POST',
+    body,
+  });
+
+  return {
+    success: true,
+    contactId: contact.id,
+    name: contact.displayName,
+    message: 'Contact created',
+  };
+}
+
+export async function updateContact(params: z.infer<typeof updateContactSchema>) {
+  const { contactId, givenName, surname, email, mobilePhone, businessPhone, companyName, jobTitle } = params;
+
+  const body: Record<string, unknown> = {};
+
+  if (givenName !== undefined) body.givenName = givenName;
+  if (surname !== undefined) body.surname = surname;
+  if (email !== undefined) {
+    body.emailAddresses = [{ address: email }];
+  }
+  if (mobilePhone !== undefined) body.mobilePhone = mobilePhone;
+  if (businessPhone !== undefined) body.businessPhones = [businessPhone];
+  if (companyName !== undefined) body.companyName = companyName;
+  if (jobTitle !== undefined) body.jobTitle = jobTitle;
+
+  const contact = await graphRequest<Contact>(`/me/contacts/${contactId}`, {
+    method: 'PATCH',
+    body,
+  });
+
+  return {
+    success: true,
+    contactId: contact.id,
+    name: contact.displayName,
+    message: 'Contact updated',
   };
 }

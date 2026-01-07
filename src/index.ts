@@ -16,6 +16,8 @@ import * as tasks from './tools/tasks.js';
 import * as onedrive from './tools/onedrive.js';
 import * as sharepoint from './tools/sharepoint.js';
 import * as contacts from './tools/contacts.js';
+import * as teams from './tools/teams.js';
+import * as chats from './tools/chats.js';
 
 const VERSION = getVersion();
 const SERVER_START_TIME = new Date();
@@ -477,6 +479,137 @@ const TOOLS = [
       required: ['contactId'],
     },
   },
+  {
+    name: 'contacts_create',
+    description: 'Create a new contact',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        givenName: { type: 'string', description: 'First name' },
+        surname: { type: 'string', description: 'Last name' },
+        email: { type: 'string', description: 'Email address' },
+        mobilePhone: { type: 'string', description: 'Mobile phone' },
+        businessPhone: { type: 'string', description: 'Business phone' },
+        companyName: { type: 'string', description: 'Company name' },
+        jobTitle: { type: 'string', description: 'Job title' },
+      },
+    },
+  },
+  {
+    name: 'contacts_update',
+    description: 'Update an existing contact',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        contactId: { type: 'string', description: 'Contact ID' },
+        givenName: { type: 'string', description: 'First name' },
+        surname: { type: 'string', description: 'Last name' },
+        email: { type: 'string', description: 'Email address' },
+        mobilePhone: { type: 'string', description: 'Mobile phone' },
+        businessPhone: { type: 'string', description: 'Business phone' },
+        companyName: { type: 'string', description: 'Company name' },
+        jobTitle: { type: 'string', description: 'Job title' },
+      },
+      required: ['contactId'],
+    },
+  },
+
+  // Teams
+  {
+    name: 'teams_list',
+    description: 'List Teams the user is a member of',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        maxItems: { type: 'number', description: 'Max teams to return. Default: 50' },
+      },
+    },
+  },
+  {
+    name: 'teams_channels',
+    description: 'List channels in a Team',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        teamId: { type: 'string', description: 'Team ID' },
+      },
+      required: ['teamId'],
+    },
+  },
+  {
+    name: 'teams_channel_messages',
+    description: 'Read recent messages from a Teams channel',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        teamId: { type: 'string', description: 'Team ID' },
+        channelId: { type: 'string', description: 'Channel ID' },
+        maxItems: { type: 'number', description: 'Max messages. Default: 25' },
+      },
+      required: ['teamId', 'channelId'],
+    },
+  },
+  {
+    name: 'teams_channel_post',
+    description: 'Post a message to a Teams channel. IMPORTANT: Requires user confirmation.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        teamId: { type: 'string', description: 'Team ID' },
+        channelId: { type: 'string', description: 'Channel ID' },
+        content: { type: 'string', description: 'Message content (supports HTML)' },
+      },
+      required: ['teamId', 'channelId', 'content'],
+    },
+  },
+
+  // Chats
+  {
+    name: 'chats_list',
+    description: 'List 1:1 and group chats',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        maxItems: { type: 'number', description: 'Max chats to return. Default: 25' },
+      },
+    },
+  },
+  {
+    name: 'chats_messages',
+    description: 'Read messages from a chat',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        chatId: { type: 'string', description: 'Chat ID' },
+        maxItems: { type: 'number', description: 'Max messages. Default: 25' },
+      },
+      required: ['chatId'],
+    },
+  },
+  {
+    name: 'chats_send',
+    description: 'Send a message in a chat. IMPORTANT: Requires user confirmation.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        chatId: { type: 'string', description: 'Chat ID' },
+        content: { type: 'string', description: 'Message content (supports HTML)' },
+      },
+      required: ['chatId', 'content'],
+    },
+  },
+  {
+    name: 'chats_create',
+    description: 'Create a new 1:1 or group chat. IMPORTANT: Requires user confirmation.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        members: { type: 'array', items: { type: 'string' }, description: 'Email addresses of chat members' },
+        topic: { type: 'string', description: 'Chat topic/title (for group chats)' },
+      },
+      required: ['members'],
+    },
+  },
 
   // Auth
   {
@@ -622,6 +755,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'contacts_get':
         result = await contacts.getContact(contacts.getContactSchema.parse(args));
+        break;
+      case 'contacts_create':
+        result = await contacts.createContact(contacts.createContactSchema.parse(args));
+        break;
+      case 'contacts_update':
+        result = await contacts.updateContact(contacts.updateContactSchema.parse(args));
+        break;
+
+      // Teams
+      case 'teams_list':
+        result = await teams.listTeams(teams.listTeamsSchema.parse(args));
+        break;
+      case 'teams_channels':
+        result = await teams.listChannels(teams.listChannelsSchema.parse(args));
+        break;
+      case 'teams_channel_messages':
+        result = await teams.listChannelMessages(teams.listChannelMessagesSchema.parse(args));
+        break;
+      case 'teams_channel_post':
+        result = await teams.postChannelMessage(teams.postChannelMessageSchema.parse(args));
+        break;
+
+      // Chats
+      case 'chats_list':
+        result = await chats.listChats(chats.listChatsSchema.parse(args));
+        break;
+      case 'chats_messages':
+        result = await chats.listChatMessages(chats.listChatMessagesSchema.parse(args));
+        break;
+      case 'chats_send':
+        result = await chats.sendChatMessage(chats.sendChatMessageSchema.parse(args));
+        break;
+      case 'chats_create':
+        result = await chats.createChat(chats.createChatSchema.parse(args));
         break;
 
       // Auth

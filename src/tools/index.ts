@@ -4,3 +4,5 @@ export * from './tasks.js';
 export * from './onedrive.js';
 export * from './sharepoint.js';
 export * from './contacts.js';
+export * from './teams.js';
+export * from './chats.js';

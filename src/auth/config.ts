@@ -32,8 +32,18 @@ export const DEFAULT_CONFIG: AuthConfig = {
     'https://graph.microsoft.com/Tasks.ReadWrite',
     'https://graph.microsoft.com/Files.ReadWrite',
     'https://graph.microsoft.com/Sites.Read.All',
-    'https://graph.microsoft.com/Contacts.Read',
+    'https://graph.microsoft.com/Contacts.ReadWrite',
     'https://graph.microsoft.com/User.Read',
+    // Teams
+    'https://graph.microsoft.com/Team.ReadBasic.All',
+    'https://graph.microsoft.com/Channel.ReadBasic.All',
+    'https://graph.microsoft.com/ChannelMessage.Read.All',
+    'https://graph.microsoft.com/ChannelMessage.Send',
+    // Chats
+    'https://graph.microsoft.com/Chat.Create',
+    'https://graph.microsoft.com/Chat.ReadBasic',
+    'https://graph.microsoft.com/Chat.Read',
+    'https://graph.microsoft.com/ChatMessage.Send',
     'offline_access',
   ],
 };

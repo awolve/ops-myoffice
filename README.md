@@ -44,8 +44,17 @@ npm run build
      - `Calendars.ReadWrite`
      - `Tasks.ReadWrite`
      - `Files.ReadWrite`
-     - `Contacts.Read`
+     - `Sites.Read.All`
+     - `Contacts.ReadWrite`
      - `User.Read`
+     - `Team.ReadBasic.All`
+     - `Channel.ReadBasic.All`
+     - `ChannelMessage.Read.All`
+     - `ChannelMessage.Send`
+     - `Chat.Create`
+     - `Chat.ReadBasic`
+     - `Chat.Read`
+     - `ChatMessage.Send`
      - `offline_access`
 6. Click **Grant admin consent** (optional - users can consent themselves)
 
@@ -147,6 +156,24 @@ Add to your Claude Code MCP settings:
 | `contacts_list` | List contacts |
 | `contacts_search` | Search contacts |
 | `contacts_get` | Get contact details |
+| `contacts_create` | Create a new contact |
+| `contacts_update` | Update an existing contact |
+
+### Teams
+| Tool | Description |
+|------|-------------|
+| `teams_list` | List Teams you're a member of |
+| `teams_channels` | List channels in a Team |
+| `teams_channel_messages` | Read messages from a channel |
+| `teams_channel_post` | Post a message to a channel |
+
+### Chats
+| Tool | Description |
+|------|-------------|
+| `chats_list` | List 1:1 and group chats |
+| `chats_messages` | Read messages from a chat |
+| `chats_send` | Send a message in a chat |
+| `chats_create` | Create a new 1:1 or group chat |
 
 ### Auth
 | Tool | Description |
