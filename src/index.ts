@@ -9,6 +9,7 @@ import {
 
 import { getCurrentUser, isAuthenticated } from './auth/index.js';
 import { getVersion } from './utils/version.js';
+import { graphRequest } from './utils/graph-client.js';
 import * as mail from './tools/mail.js';
 import * as calendar from './tools/calendar.js';
 import * as tasks from './tools/tasks.js';
@@ -620,6 +621,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const seconds = uptimeSec % 60;
         const uptimeStr = `${hours}h ${minutes}m ${seconds}s`;
 
+        // Test Graph API connectivity with 10 second timeout
+        let graphTest: { status: string; responseTimeMs?: number; error?: string; user?: string };
+        const testStartTime = Date.now();
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Timeout after 10 seconds')), 10000);
+          });
+
+          const graphTestResult = await Promise.race([
+            graphRequest<{ displayName?: string; mail?: string }>('/me?$select=displayName,mail'),
+            timeoutPromise,
+          ]);
+
+          const responseTimeMs = Date.now() - testStartTime;
+          graphTest = {
+            status: 'OK',
+            responseTimeMs,
+            user: graphTestResult.displayName || graphTestResult.mail || 'unknown',
+          };
+        } catch (err) {
+          const responseTimeMs = Date.now() - testStartTime;
+          graphTest = {
+            status: 'FAILED',
+            responseTimeMs,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+
         result = {
           server: {
             name: 'ops-personal-m365-mcp',
@@ -644,6 +673,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             user: getCurrentUser(),
             tokenCachePath: '~/.config/ops-personal-m365-mcp/token.json',
           },
+          graphApiTest: graphTest,
           tools: TOOLS.length,
         };
         break;
