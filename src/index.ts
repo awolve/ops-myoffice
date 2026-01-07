@@ -87,16 +87,17 @@ const TOOLS = [
   },
   {
     name: 'mail_send',
-    description: 'Send an email. IMPORTANT: Requires user confirmation before sending.',
+    description: 'Send an email. IMPORTANT: Requires user confirmation before sending. Automatically appends signature if configured.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         to: { type: 'array', items: { type: 'string' }, description: 'Recipient emails' },
         subject: { type: 'string', description: 'Email subject' },
-        body: { type: 'string', description: 'Email body' },
-        isHtml: { type: 'boolean', description: 'Is body HTML? Default: false' },
+        body: { type: 'string', description: 'Email body (HTML by default)' },
+        isHtml: { type: 'boolean', description: 'Is body HTML? Default: true' },
         cc: { type: 'array', items: { type: 'string' }, description: 'CC recipients' },
         bcc: { type: 'array', items: { type: 'string' }, description: 'BCC recipients' },
+        useSignature: { type: 'boolean', description: 'Append email signature if configured. Default: true' },
       },
       required: ['to', 'subject', 'body'],
     },

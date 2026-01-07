@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { graphRequest, graphList } from '../utils/graph-client.js';
+import { getSignature } from '../utils/signature.js';
 
 // Types
 interface EmailAddress {
@@ -44,9 +45,10 @@ export const sendMailSchema = z.object({
   to: z.array(z.string()).describe('List of recipient email addresses'),
   subject: z.string().describe('Email subject'),
   body: z.string().describe('Email body (plain text or HTML)'),
-  isHtml: z.boolean().optional().describe('Whether body is HTML. Default: false'),
+  isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
   cc: z.array(z.string()).optional().describe('CC recipients'),
   bcc: z.array(z.string()).optional().describe('BCC recipients'),
+  useSignature: z.boolean().optional().describe('Append email signature if configured. Default: true'),
 });
 
 export const deleteMailSchema = z.object({
@@ -120,14 +122,25 @@ export async function searchMail(params: z.infer<typeof searchMailSchema>) {
 }
 
 export async function sendMail(params: z.infer<typeof sendMailSchema>) {
-  const { to, subject, body, isHtml = false, cc, bcc } = params;
+  const { to, subject, body, isHtml = true, cc, bcc, useSignature = true } = params;
+
+  // Append signature if enabled and configured
+  let finalBody = body;
+  if (useSignature) {
+    const signature = getSignature();
+    if (signature) {
+      finalBody = isHtml
+        ? `${body}<br><br>${signature}`
+        : `${body}\n\n--\n${signature}`;
+    }
+  }
 
   const message = {
     message: {
       subject,
       body: {
         contentType: isHtml ? 'HTML' : 'Text',
-        content: body,
+        content: finalBody,
       },
       toRecipients: to.map((addr) => ({
         emailAddress: { address: addr },

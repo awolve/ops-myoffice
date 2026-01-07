@@ -1,6 +1,6 @@
 {
   "name": "ops-personal-m365-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Personal M365 MCP for AI assistants - delegated auth for email, calendar, tasks, OneDrive",
   "type": "module",
   "main": "dist/index.js",
