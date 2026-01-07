@@ -126,24 +126,24 @@ interface User {
 export async function createChat(params: z.infer<typeof createChatSchema>) {
   const { members, topic } = params;
 
-  // Get current user
-  const currentUser = await graphRequest<User>('/me?$select=id');
+  // Get current user email
+  const currentUser = await graphRequest<User>('/me?$select=id,mail,userPrincipalName');
+  const currentUserEmail = currentUser.mail || currentUser.userPrincipalName;
 
-  // Resolve email addresses to user IDs
+  // Build member bindings using email addresses directly
   const memberBindings = [
     {
       '@odata.type': '#microsoft.graph.aadUserConversationMember',
       roles: ['owner'],
-      'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${currentUser.id}')`,
+      'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${currentUserEmail}')`,
     },
   ];
 
   for (const email of members) {
-    const user = await graphRequest<User>(`/users/${encodeURIComponent(email)}?$select=id`);
     memberBindings.push({
       '@odata.type': '#microsoft.graph.aadUserConversationMember',
       roles: ['owner'],
-      'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${user.id}')`,
+      'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${email}')`,
     });
   }
 
