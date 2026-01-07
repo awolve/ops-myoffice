@@ -1,8 +1,9 @@
-import { PublicClientApplication, SilentFlowRequest, AuthenticationResult } from '@azure/msal-node';
-import { DEFAULT_CONFIG, getTokenCache, saveTokenCache, TokenCache } from './config.js';
-import { authenticateWithDeviceCode } from './device-code.js';
+import { PublicClientApplication, SilentFlowRequest, AuthenticationResult, AccountInfo } from '@azure/msal-node';
+import { DEFAULT_CONFIG, MSAL_CACHE_FILE, getTokenCache } from './config.js';
+import { FileCachePlugin } from './cache-plugin.js';
 
 let msalInstance: PublicClientApplication | null = null;
+const cachePlugin = new FileCachePlugin(MSAL_CACHE_FILE);
 
 function getMsalInstance(): PublicClientApplication {
   if (!msalInstance) {
@@ -15,75 +16,76 @@ function getMsalInstance(): PublicClientApplication {
         clientId: DEFAULT_CONFIG.clientId,
         authority: `https://login.microsoftonline.com/${DEFAULT_CONFIG.tenantId}`,
       },
+      cache: {
+        cachePlugin,
+      },
     });
   }
   return msalInstance;
 }
 
 export async function getAccessToken(): Promise<string> {
-  const cache = getTokenCache();
+  const pca = getMsalInstance();
 
-  // No cached token, need to authenticate
-  if (!cache || !cache.account) {
-    const newCache = await authenticateWithDeviceCode();
-    return newCache.accessToken;
+  // Get accounts from MSAL's persisted cache
+  const accounts = await pca.getTokenCache().getAllAccounts();
+
+  if (accounts.length === 0) {
+    // No accounts in MSAL cache - check legacy token.json for migration hint
+    const legacyCache = getTokenCache();
+    if (legacyCache?.account) {
+      console.error('[Auth] Found legacy token.json but no MSAL cache.');
+      console.error('[Auth] Please re-authenticate to migrate to new cache format.');
+    }
+    throw new Error(
+      'Not authenticated. Please run "npm run login" in the ops-personal-m365-mcp directory.'
+    );
   }
 
-  // Token still valid (with 5 min buffer)
-  if (cache.expiresAt > Date.now() + 5 * 60 * 1000) {
-    return cache.accessToken;
-  }
+  // Use the first account (typically there's only one for personal use)
+  const account = accounts[0];
 
-  // Token expired, try silent refresh
-  console.error('[Auth] Token expired, attempting silent refresh...');
+  // Try silent token acquisition (MSAL handles refresh automatically)
+  console.error('[Auth] Acquiring token silently...');
   try {
-    const pca = getMsalInstance();
-
     const silentRequest: SilentFlowRequest = {
       scopes: DEFAULT_CONFIG.scopes,
-      account: {
-        homeAccountId: cache.account.homeAccountId,
-        environment: cache.account.environment,
-        tenantId: cache.account.tenantId,
-        username: cache.account.username,
-        localAccountId: cache.account.homeAccountId.split('.')[0],
-      },
+      account: account,
     };
 
     const result: AuthenticationResult = await pca.acquireTokenSilent(silentRequest);
 
-    console.error('[Auth] Silent refresh successful');
-    const newCache: TokenCache = {
-      accessToken: result.accessToken,
-      refreshToken: '',
-      expiresAt: result.expiresOn?.getTime() || Date.now() + 3600 * 1000,
-      account: cache.account,
-    };
-
-    saveTokenCache(newCache);
+    console.error('[Auth] Token acquired successfully');
     return result.accessToken;
   } catch (error) {
     // Silent refresh failed - log the actual error
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Auth] Silent refresh FAILED:', errorMessage);
-    console.error('[Auth] Token has expired and cannot be refreshed automatically.');
+    console.error('[Auth] Silent token acquisition FAILED:', errorMessage);
     console.error('[Auth] Please re-authenticate by running: npm run login');
 
-    // Don't call authenticateWithDeviceCode() - it will hang in MCP context
-    // Instead, throw an error so the user knows they need to re-auth
     throw new Error(
-      `Token expired and refresh failed: ${errorMessage}. ` +
+      `Token acquisition failed: ${errorMessage}. ` +
       `Please re-authenticate by running 'npm run login' in the ops-personal-m365-mcp directory.`
     );
   }
 }
 
 export async function isAuthenticated(): Promise<boolean> {
-  const cache = getTokenCache();
-  return cache !== null && cache.account !== undefined;
+  try {
+    const pca = getMsalInstance();
+    const accounts = await pca.getTokenCache().getAllAccounts();
+    return accounts.length > 0;
+  } catch {
+    return false;
+  }
 }
 
-export function getCurrentUser(): string | null {
-  const cache = getTokenCache();
-  return cache?.account?.username || null;
+export async function getCurrentUser(): Promise<string | null> {
+  try {
+    const pca = getMsalInstance();
+    const accounts = await pca.getTokenCache().getAllAccounts();
+    return accounts[0]?.username || null;
+  } catch {
+    return null;
+  }
 }

@@ -1,7 +1,10 @@
-import { PublicClientApplication, DeviceCodeRequest, AuthenticationResult } from '@azure/msal-node';
-import { DEFAULT_CONFIG, saveTokenCache, TokenCache } from './config.js';
+import { PublicClientApplication, DeviceCodeRequest } from '@azure/msal-node';
+import { DEFAULT_CONFIG, MSAL_CACHE_FILE } from './config.js';
+import { FileCachePlugin } from './cache-plugin.js';
 
-export async function authenticateWithDeviceCode(): Promise<TokenCache> {
+const cachePlugin = new FileCachePlugin(MSAL_CACHE_FILE);
+
+export async function authenticateWithDeviceCode(): Promise<void> {
   if (!DEFAULT_CONFIG.clientId) {
     throw new Error(
       'M365_CLIENT_ID environment variable is required.\n' +
@@ -9,14 +12,15 @@ export async function authenticateWithDeviceCode(): Promise<TokenCache> {
     );
   }
 
-  const msalConfig = {
+  const pca = new PublicClientApplication({
     auth: {
       clientId: DEFAULT_CONFIG.clientId,
       authority: `https://login.microsoftonline.com/${DEFAULT_CONFIG.tenantId}`,
     },
-  };
-
-  const pca = new PublicClientApplication(msalConfig);
+    cache: {
+      cachePlugin,
+    },
+  });
 
   const deviceCodeRequest: DeviceCodeRequest = {
     scopes: DEFAULT_CONFIG.scopes,
@@ -35,22 +39,8 @@ export async function authenticateWithDeviceCode(): Promise<TokenCache> {
     throw new Error('Failed to acquire access token');
   }
 
-  const tokenCache: TokenCache = {
-    accessToken: result.accessToken,
-    refreshToken: '', // MSAL handles refresh internally
-    expiresAt: result.expiresOn?.getTime() || Date.now() + 3600 * 1000,
-    account: result.account ? {
-      homeAccountId: result.account.homeAccountId,
-      environment: result.account.environment,
-      tenantId: result.account.tenantId,
-      username: result.account.username,
-    } : undefined,
-  };
-
-  saveTokenCache(tokenCache);
-
+  // The cache plugin automatically persists the tokens via afterCacheAccess
   console.log(`\nAuthenticated as: ${result.account?.username}`);
-  console.log('Token cached for future sessions.\n');
-
-  return tokenCache;
+  console.log('Token cached at:', MSAL_CACHE_FILE);
+  console.log('Refresh token is now properly persisted.\n');
 }

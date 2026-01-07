@@ -75,10 +75,11 @@ Feature specs are in `specs/` directory:
 
 ## Common Tasks
 
-### Update version
-Edit `version` in `package.json`. Server reads it dynamically.
-
-**Important:** Always bump the version in `package.json` when making changes. This helps users verify they're running the updated code via `debug_info`.
+### Before pushing new features
+1. Bump the version in `package.json`
+2. Check `specs/` for a spec that describes the current changes
+3. If no relevant spec exists, run `/retro-spec` to document the work
+4. Commit and push
 
 ### Add new Graph API permission
 Add scope to `scopes` array in `src/auth/config.ts`. User must re-authenticate.

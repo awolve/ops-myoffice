@@ -609,7 +609,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'auth_status':
         result = {
           authenticated: await isAuthenticated(),
-          user: getCurrentUser(),
+          user: await getCurrentUser(),
         };
         break;
 
@@ -670,8 +670,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           },
           auth: {
             authenticated: await isAuthenticated(),
-            user: getCurrentUser(),
-            tokenCachePath: '~/.config/ops-personal-m365-mcp/token.json',
+            user: await getCurrentUser(),
+            tokenCachePath: '~/.config/ops-personal-m365-mcp/msal-cache.json',
           },
           graphApiTest: graphTest,
           tools: TOOLS.length,
