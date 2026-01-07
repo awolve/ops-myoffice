@@ -129,17 +129,36 @@ export async function searchMail(params: z.infer<typeof searchMailSchema>) {
   }));
 }
 
+// Convert plain text to HTML (escape special chars, convert newlines to <br>)
+function textToHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
+}
+
+// Check if string looks like HTML (contains tags)
+function looksLikeHtml(text: string): boolean {
+  return /<[a-z][\s\S]*>/i.test(text);
+}
+
 export async function sendMail(params: z.infer<typeof sendMailSchema>) {
   const { to, subject, body, isHtml = true, cc, bcc, useSignature = true } = params;
 
-  // Append signature if enabled and configured
+  // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
+  if (isHtml && !looksLikeHtml(body)) {
+    finalBody = textToHtml(body);
+  }
+
+  // Append signature if enabled and configured
   if (useSignature) {
     const signature = getSignature();
     if (signature) {
       finalBody = isHtml
-        ? `${body}<br><br>${signature}`
-        : `${body}\n\n--\n${signature}`;
+        ? `${finalBody}<br><br>${signature}`
+        : `${finalBody}\n\n--\n${signature}`;
     }
   }
 
@@ -174,14 +193,19 @@ export async function sendMail(params: z.infer<typeof sendMailSchema>) {
 export async function replyMail(params: z.infer<typeof replyMailSchema>) {
   const { messageId, body, isHtml = true, replyAll = false, useSignature = false } = params;
 
-  // Append signature if enabled and configured
+  // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
+  if (isHtml && !looksLikeHtml(body)) {
+    finalBody = textToHtml(body);
+  }
+
+  // Append signature if enabled and configured
   if (useSignature) {
     const signature = getSignature();
     if (signature) {
       finalBody = isHtml
-        ? `${body}<br><br>${signature}`
-        : `${body}\n\n--\n${signature}`;
+        ? `${finalBody}<br><br>${signature}`
+        : `${finalBody}\n\n--\n${signature}`;
     }
   }
 
