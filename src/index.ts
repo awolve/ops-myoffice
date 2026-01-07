@@ -1,10 +1,27 @@
 #!/usr/bin/env node
 
-// Capture startup time for uptime tracking
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
+
+import { getCurrentUser, isAuthenticated } from './auth/index.js';
+import { getVersion } from './utils/version.js';
+import * as mail from './tools/mail.js';
+import * as calendar from './tools/calendar.js';
+import * as tasks from './tools/tasks.js';
+import * as onedrive from './tools/onedrive.js';
+import * as sharepoint from './tools/sharepoint.js';
+import * as contacts from './tools/contacts.js';
+
+const VERSION = getVersion();
 const SERVER_START_TIME = new Date();
 
 // Debug: Log environment on startup
 console.error('=== MCP Server Starting ===');
+console.error('Version:', VERSION);
 console.error('Started at:', SERVER_START_TIME.toISOString());
 const clientId = process.env.M365_CLIENT_ID;
 if (!clientId) {
@@ -17,25 +34,10 @@ if (!clientId) {
 console.error('M365_TENANT_ID:', process.env.M365_TENANT_ID || 'NOT SET (will use "common")');
 console.error('===========================');
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-
-import { getCurrentUser, isAuthenticated } from './auth/index.js';
-import * as mail from './tools/mail.js';
-import * as calendar from './tools/calendar.js';
-import * as tasks from './tools/tasks.js';
-import * as onedrive from './tools/onedrive.js';
-import * as sharepoint from './tools/sharepoint.js';
-import * as contacts from './tools/contacts.js';
-
 const server = new Server(
   {
     name: 'ops-personal-m365-mcp',
-    version: '0.1.0',
+    version: VERSION,
   },
   {
     capabilities: {
@@ -621,7 +623,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = {
           server: {
             name: 'ops-personal-m365-mcp',
-            version: '0.1.0',
+            version: VERSION,
             nodeVersion: process.version,
             platform: process.platform,
             pid: process.pid,
