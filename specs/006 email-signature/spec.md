@@ -12,6 +12,7 @@ Email signatures are standard practice for professional communication. Users sho
 
 - [x] If `~/.config/ops-personal-m365-mcp/signature.html` exists, use it
 - [x] `useSignature` parameter on `mail_send` (default: true) to opt-out
+- [x] `mail_reply` tool with `useSignature` defaulting to false
 - [x] Change `isHtml` default to `true` (HTML is now the default format)
 
 ## Approach

@@ -51,6 +51,14 @@ export const sendMailSchema = z.object({
   useSignature: z.boolean().optional().describe('Append email signature if configured. Default: true'),
 });
 
+export const replyMailSchema = z.object({
+  messageId: z.string().describe('The ID of the message to reply to'),
+  body: z.string().describe('Reply body (HTML by default)'),
+  isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
+  replyAll: z.boolean().optional().describe('Reply to all recipients. Default: false'),
+  useSignature: z.boolean().optional().describe('Append email signature if configured. Default: false'),
+});
+
 export const deleteMailSchema = z.object({
   messageId: z.string().describe('The ID of the message to delete'),
 });
@@ -161,6 +169,39 @@ export async function sendMail(params: z.infer<typeof sendMailSchema>) {
   });
 
   return { success: true, message: `Email sent to ${to.join(', ')}` };
+}
+
+export async function replyMail(params: z.infer<typeof replyMailSchema>) {
+  const { messageId, body, isHtml = true, replyAll = false, useSignature = false } = params;
+
+  // Append signature if enabled and configured
+  let finalBody = body;
+  if (useSignature) {
+    const signature = getSignature();
+    if (signature) {
+      finalBody = isHtml
+        ? `${body}<br><br>${signature}`
+        : `${body}\n\n--\n${signature}`;
+    }
+  }
+
+  const endpoint = replyAll
+    ? `/me/messages/${messageId}/replyAll`
+    : `/me/messages/${messageId}/reply`;
+
+  await graphRequest(endpoint, {
+    method: 'POST',
+    body: {
+      message: {
+        body: {
+          contentType: isHtml ? 'HTML' : 'Text',
+          content: finalBody,
+        },
+      },
+    },
+  });
+
+  return { success: true, message: replyAll ? 'Reply sent to all' : 'Reply sent' };
 }
 
 export async function deleteMail(params: z.infer<typeof deleteMailSchema>) {

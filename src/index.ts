@@ -103,6 +103,21 @@ const TOOLS = [
     },
   },
   {
+    name: 'mail_reply',
+    description: 'Reply to an email. IMPORTANT: Requires user confirmation before sending.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        messageId: { type: 'string', description: 'The message ID to reply to' },
+        body: { type: 'string', description: 'Reply body (HTML by default)' },
+        isHtml: { type: 'boolean', description: 'Is body HTML? Default: true' },
+        replyAll: { type: 'boolean', description: 'Reply to all recipients. Default: false' },
+        useSignature: { type: 'boolean', description: 'Append email signature. Default: false' },
+      },
+      required: ['messageId', 'body'],
+    },
+  },
+  {
     name: 'mail_delete',
     description: 'Delete an email. IMPORTANT: Requires user confirmation.',
     inputSchema: {
@@ -507,6 +522,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'mail_send':
         result = await mail.sendMail(mail.sendMailSchema.parse(args));
+        break;
+      case 'mail_reply':
+        result = await mail.replyMail(mail.replyMailSchema.parse(args));
         break;
       case 'mail_delete':
         result = await mail.deleteMail(mail.deleteMailSchema.parse(args));
