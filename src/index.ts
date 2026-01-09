@@ -18,6 +18,7 @@ import * as sharepoint from './tools/sharepoint.js';
 import * as contacts from './tools/contacts.js';
 import * as teams from './tools/teams.js';
 import * as chats from './tools/chats.js';
+import * as planner from './tools/planner.js';
 
 const VERSION = getVersion();
 const SERVER_START_TIME = new Date();
@@ -611,6 +612,181 @@ const TOOLS = [
     },
   },
 
+  // Planner
+  {
+    name: 'planner_list_plans',
+    description: 'List all Planner plans the user has access to',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        maxItems: { type: 'number', description: 'Max plans to return. Default: 50' },
+      },
+    },
+  },
+  {
+    name: 'planner_get_plan',
+    description: 'Get details of a specific Planner plan',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        planId: { type: 'string', description: 'The plan ID' },
+      },
+      required: ['planId'],
+    },
+  },
+  {
+    name: 'planner_list_buckets',
+    description: 'List buckets (columns) in a Planner plan',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        planId: { type: 'string', description: 'The plan ID' },
+      },
+      required: ['planId'],
+    },
+  },
+  {
+    name: 'planner_create_bucket',
+    description: 'Create a new bucket in a Planner plan',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        planId: { type: 'string', description: 'The plan ID' },
+        name: { type: 'string', description: 'Bucket name' },
+      },
+      required: ['planId', 'name'],
+    },
+  },
+  {
+    name: 'planner_update_bucket',
+    description: 'Update a bucket name',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        bucketId: { type: 'string', description: 'The bucket ID' },
+        name: { type: 'string', description: 'New bucket name' },
+      },
+      required: ['bucketId', 'name'],
+    },
+  },
+  {
+    name: 'planner_delete_bucket',
+    description: 'Delete a bucket and its tasks. IMPORTANT: Requires user confirmation.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        bucketId: { type: 'string', description: 'The bucket ID' },
+      },
+      required: ['bucketId'],
+    },
+  },
+  {
+    name: 'planner_list_tasks',
+    description: 'List tasks in a Planner plan',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        planId: { type: 'string', description: 'The plan ID' },
+        bucketId: { type: 'string', description: 'Filter by bucket ID' },
+        maxItems: { type: 'number', description: 'Max tasks to return. Default: 100' },
+      },
+      required: ['planId'],
+    },
+  },
+  {
+    name: 'planner_get_task',
+    description: 'Get details of a specific Planner task',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+      },
+      required: ['taskId'],
+    },
+  },
+  {
+    name: 'planner_create_task',
+    description: 'Create a new task in a Planner plan',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        planId: { type: 'string', description: 'The plan ID' },
+        title: { type: 'string', description: 'Task title' },
+        bucketId: { type: 'string', description: 'Bucket ID to place the task in' },
+        assignments: { type: 'array', items: { type: 'string' }, description: 'Email addresses of users to assign' },
+        dueDateTime: { type: 'string', description: 'Due date (ISO format)' },
+        startDateTime: { type: 'string', description: 'Start date (ISO format)' },
+        priority: { type: 'string', enum: ['urgent', 'important', 'medium', 'low'], description: 'Task priority' },
+        progress: { type: 'string', enum: ['notStarted', 'inProgress', 'completed'], description: 'Task progress' },
+      },
+      required: ['planId', 'title'],
+    },
+  },
+  {
+    name: 'planner_update_task',
+    description: 'Update a Planner task',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        title: { type: 'string', description: 'New task title' },
+        bucketId: { type: 'string', description: 'Move to different bucket' },
+        assignments: { type: 'array', items: { type: 'string' }, description: 'Email addresses of users to assign (replaces existing)' },
+        dueDateTime: { type: 'string', description: 'New due date (ISO format)' },
+        startDateTime: { type: 'string', description: 'New start date (ISO format)' },
+        priority: { type: 'string', enum: ['urgent', 'important', 'medium', 'low'], description: 'New priority' },
+        progress: { type: 'string', enum: ['notStarted', 'inProgress', 'completed'], description: 'New progress' },
+      },
+      required: ['taskId'],
+    },
+  },
+  {
+    name: 'planner_delete_task',
+    description: 'Delete a Planner task. IMPORTANT: Requires user confirmation.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+      },
+      required: ['taskId'],
+    },
+  },
+  {
+    name: 'planner_get_task_details',
+    description: 'Get task details including description and checklist',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+      },
+      required: ['taskId'],
+    },
+  },
+  {
+    name: 'planner_update_task_details',
+    description: 'Update task description and checklist',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        description: { type: 'string', description: 'Task description' },
+        checklist: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'Checklist item title' },
+              isChecked: { type: 'boolean', description: 'Whether item is checked' },
+            },
+            required: ['title'],
+          },
+          description: 'Checklist items (replaces existing checklist)',
+        },
+      },
+      required: ['taskId'],
+    },
+  },
+
   // Auth
   {
     name: 'auth_status',
@@ -789,6 +965,47 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case 'chats_create':
         result = await chats.createChat(chats.createChatSchema.parse(args));
+        break;
+
+      // Planner
+      case 'planner_list_plans':
+        result = await planner.listPlans(planner.listPlansSchema.parse(args));
+        break;
+      case 'planner_get_plan':
+        result = await planner.getPlan(planner.getPlanSchema.parse(args));
+        break;
+      case 'planner_list_buckets':
+        result = await planner.listBuckets(planner.listBucketsSchema.parse(args));
+        break;
+      case 'planner_create_bucket':
+        result = await planner.createBucket(planner.createBucketSchema.parse(args));
+        break;
+      case 'planner_update_bucket':
+        result = await planner.updateBucket(planner.updateBucketSchema.parse(args));
+        break;
+      case 'planner_delete_bucket':
+        result = await planner.deleteBucket(planner.deleteBucketSchema.parse(args));
+        break;
+      case 'planner_list_tasks':
+        result = await planner.listPlannerTasks(planner.listPlannerTasksSchema.parse(args));
+        break;
+      case 'planner_get_task':
+        result = await planner.getPlannerTask(planner.getPlannerTaskSchema.parse(args));
+        break;
+      case 'planner_create_task':
+        result = await planner.createPlannerTask(planner.createPlannerTaskSchema.parse(args));
+        break;
+      case 'planner_update_task':
+        result = await planner.updatePlannerTask(planner.updatePlannerTaskSchema.parse(args));
+        break;
+      case 'planner_delete_task':
+        result = await planner.deletePlannerTask(planner.deletePlannerTaskSchema.parse(args));
+        break;
+      case 'planner_get_task_details':
+        result = await planner.getPlannerTaskDetails(planner.getPlannerTaskDetailsSchema.parse(args));
+        break;
+      case 'planner_update_task_details':
+        result = await planner.updatePlannerTaskDetails(planner.updatePlannerTaskDetailsSchema.parse(args));
         break;
 
       // Auth

@@ -19,9 +19,12 @@ src/
 │   ├── mail.ts        # Email operations
 │   ├── calendar.ts    # Calendar events
 │   ├── tasks.ts       # Microsoft To Do
+│   ├── planner.ts     # Microsoft Planner (plans, buckets, tasks)
 │   ├── onedrive.ts    # OneDrive files + shared files
 │   ├── sharepoint.ts  # SharePoint sites and document libraries
 │   ├── contacts.ts    # Contacts
+│   ├── teams.ts       # Teams channels and messages
+│   ├── chats.ts       # 1:1 and group chats
 │   └── index.ts       # Tool exports
 └── utils/
     ├── graph-client.ts # Authenticated Graph API client
@@ -30,11 +33,10 @@ src/
 
 ## Key Files
 
-- `src/index.ts:37-47` - Server registration with MCP SDK
-- `src/index.ts:50-481` - Tool definitions (JSON Schema)
-- `src/index.ts:489-675` - Tool call routing and execution
+- `src/index.ts` - MCP server entry point, tool definitions (TOOLS array), and routing (switch statement)
 - `src/auth/config.ts` - Azure AD scopes (add new permissions here)
 - `src/utils/graph-client.ts` - All Graph API calls go through this
+- `src/tools/*.ts` - Individual tool implementations
 
 ## Authentication
 
@@ -72,6 +74,8 @@ Feature specs are in `specs/` directory:
 - `001-personal-m365-mcp/` - Initial implementation (requirements, design, tasks)
 - `002 shared-onedrive-sharepoint/` - SharePoint and shared files access
 - `003 version-management/` - Dynamic version from package.json
+- `008 teams-integration/` - Teams and chats support
+- `009-planner-integration/` - Microsoft Planner support (plans, buckets, tasks)
 
 ## Common Tasks
 
@@ -86,3 +90,19 @@ Add scope to `scopes` array in `src/auth/config.ts`. User must re-authenticate.
 
 ### Debug MCP server issues
 Call the `debug_info` tool to see server info, environment variables, and auth status.
+
+## Planner Integration
+
+Microsoft Planner provides team-oriented task management. Key concepts:
+
+- **Plans** - Read-only. Plans belong to M365 Groups, users can only see plans in groups they're members of.
+- **Buckets** - Columns within a plan. Full CRUD supported.
+- **Tasks** - Items within buckets. Full CRUD with assignments, due dates, priority, progress.
+- **Task Details** - Extended info: description, checklist items.
+
+**Important notes:**
+- All updates/deletes require ETags (handled internally - no user action needed)
+- Task assignments accept email addresses (resolved to user IDs automatically)
+- Progress values: `notStarted`, `inProgress`, `completed`
+- Priority values: `urgent`, `important`, `medium`, `low`
+- Plans cannot be created via MCP (would require M365 Group creation)

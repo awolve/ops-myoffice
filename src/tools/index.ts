@@ -6,3 +6,4 @@ export * from './sharepoint.js';
 export * from './contacts.js';
 export * from './teams.js';
 export * from './chats.js';
+export * from './planner.js';

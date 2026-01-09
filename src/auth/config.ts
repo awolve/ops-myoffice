@@ -44,6 +44,8 @@ export const DEFAULT_CONFIG: AuthConfig = {
     'https://graph.microsoft.com/Chat.ReadBasic',
     'https://graph.microsoft.com/Chat.Read',
     'https://graph.microsoft.com/ChatMessage.Send',
+    // Planner
+    'https://graph.microsoft.com/Group.Read.All',
     'offline_access',
   ],
 };
