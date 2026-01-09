@@ -1,7 +1,7 @@
 {
-  "name": "myoffice-mcp",
-  "version": "1.0.0",
-  "description": "Personal M365 MCP for AI assistants - delegated auth for email, calendar, tasks, OneDrive",
+  "name": "awolve-myoffice-cli",
+  "version": "1.1.0",
+  "description": "CLI and MCP server for personal Microsoft 365 access - email, calendar, tasks, OneDrive, Teams, Planner",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -9,8 +9,8 @@
     "myoffice": "dist/cli.js"
   },
   "scripts": {
-    "build": "npx tsc",
-    "prepare": "npm run build",
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "login": "tsx src/cli.ts login"
@@ -30,6 +30,11 @@
   "engines": {
     "node": ">=18"
   },
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ],
+  "author": "Awolve",
   "license": "MIT",
   "repository": {
     "type": "git",

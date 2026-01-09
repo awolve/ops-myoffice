@@ -81,7 +81,7 @@ The `myoffice` CLI provides terminal access to all Microsoft 365 tools.
 ### Installation & Authentication
 
 ```bash
-npm install -g github:awolve/ops-myoffice
+npm install -g awolve-myoffice-cli
 
 # Add to ~/.zshrc (required for all commands)
 export M365_CLIENT_ID="your-azure-app-client-id"
