@@ -90,31 +90,49 @@ Estimated scope: **Medium** (2-3 days of work)
 - [ ] 9. **Implement contacts commands**
   - [ ] 9.1 Create contacts command group
     - Files: `src/cli/commands/contacts.ts` (new)
-    - Subcommands: list, search, get
+    - Subcommands: list, search, get, create, update
+    - Requirements: R7, R14
+
+- [ ] 10. **Implement teams commands**
+  - [ ] 10.1 Create teams command group
+    - Files: `src/cli/commands/teams.ts` (new)
+    - Subcommands: list, channels, messages, post
+    - Requirements: R7, R14
+
+- [ ] 11. **Implement chats commands**
+  - [ ] 11.1 Create chats command group
+    - Files: `src/cli/commands/chats.ts` (new)
+    - Subcommands: list, messages, send, create
+    - Requirements: R7, R14
+
+- [ ] 12. **Implement planner commands**
+  - [ ] 12.1 Create planner command group
+    - Files: `src/cli/commands/planner.ts` (new)
+    - Subcommands: plans, plan, buckets, bucket-create, bucket-update, bucket-delete, tasks, task, task-create, task-update, task-delete, task-details, task-details-update
     - Requirements: R7, R14
 
 ### Phase 5: Output Formatting
 
-- [ ] 10. **Create output formatter**
-  - [ ] 10.1 Implement formatter module
+- [ ] 13. **Create output formatter**
+  - [ ] 13.1 Implement formatter module
     - Files: `src/cli/formatter.ts` (new)
     - JSON output mode (simple stringify)
     - Human-readable tables for lists
     - Human-readable key-value for single items
     - Requirements: R9, R10
-  - [ ] 10.2 Apply formatter to all commands
+  - [ ] 13.2 Apply formatter to all commands
     - Files: `src/cli/commands/*.ts`
     - Use `--json` flag to switch modes
 
 ### Phase 6: Error Handling
 
-- [ ] 11. **Implement error handling**
-  - [ ] 11.1 Add auth check wrapper
+- [ ] 14. **Implement error handling**
+  - [ ] 14.1 Add auth check wrapper
     - Files: `src/cli.ts` or `src/cli/middleware.ts` (new)
     - Check auth before running commands (except login/status)
     - Show helpful error message with login instructions
     - Requirements: R1, R11, R12
-  - [ ] 11.2 Handle API errors gracefully
+  - [ ] 14.2 Handle API errors gracefully
     - Files: `src/cli/commands/*.ts`
     - Catch errors, format for human/JSON
     - Set exit code 1 on error
@@ -122,33 +140,51 @@ Estimated scope: **Medium** (2-3 days of work)
 
 ### Phase 7: Build & Package
 
-- [ ] 12. **Finalize build configuration**
-  - [ ] 12.1 Update TypeScript config if needed
+- [ ] 15. **Finalize build configuration**
+  - [ ] 15.1 Update TypeScript config if needed
     - Files: `tsconfig.json`
     - Ensure `cli.ts` is included in build
-  - [ ] 12.2 Add shebang to cli.ts
+  - [ ] 15.2 Add shebang to cli.ts
     - Files: `src/cli.ts`
     - Add: `#!/usr/bin/env node`
-  - [ ] 12.3 Update package.json scripts
+  - [ ] 15.3 Update package.json scripts
     - Files: `package.json`
     - Update login script to use CLI
     - Add prepublish script
 
 ### Phase 8: Documentation
 
-- [ ] 13. **Documentation**
-  - [ ] 13.1 Update README with CLI usage
+- [ ] 16. **Documentation**
+  - [ ] 16.1 Update README with CLI usage
     - Files: `README.md`
     - Installation from GitHub
     - Basic usage examples
     - Command reference
-  - [ ] 13.2 Update CLAUDE.md
+  - [ ] 16.2 Update CLAUDE.md
     - Files: `CLAUDE.md`
     - Note about dual entry points (MCP + CLI)
-  - [ ] 13.3 Add entry to Awolve Handbook
+  - [ ] 16.3 Add entry to Awolve Handbook
     - Location: Awolve Handbook (tools section)
     - Content: Installation, setup, usage examples
     - Link to GitHub repo
+
+### Phase 9: Claude Code Skill
+
+- [ ] 17. **Create Claude Code skill for Awolve Office**
+  - [ ] 17.1 Create skill file
+    - Files: `skills/awolve-office.md` (new)
+    - Skill name and description in frontmatter
+    - Trigger conditions for personal Microsoft 365 operations
+    - Clear distinction from: (1) personal Gmail/Google, (2) M365 MCP admin tool
+    - Explain: MyOffice = personal user ops, M365 MCP = admin ops
+    - Installation instructions (npm install from GitHub)
+    - Environment setup (M365_CLIENT_ID, reference to handbook)
+    - Authentication flow (myoffice login)
+    - Error handling guidance (not installed, not authenticated, env var missing)
+    - CLI command reference with --json flag usage
+    - Example workflows for common operations
+  - [ ] 17.2 Document skill installation
+    - Add instructions for copying skill to `~/.claude/skills/` or project `.claude/skills/`
 
 ## Implementation Order
 
@@ -157,10 +193,11 @@ Recommended sequence:
 1. **Phase 2 first** - Extract handler so we can test incrementally
 2. **Phase 3** - Get basic CLI working with login/status
 3. **Phase 4** - Start with mail (most used)
-4. **Phase 10** - Add formatter early for consistent output
-5. **Phases 5-9** - Add remaining command groups
-6. **Phase 11** - Polish error handling
+4. **Phase 5 (task 13)** - Add formatter early for consistent output
+5. **Phases 4-12** - Add remaining command groups (calendar, tasks, files, sharepoint, contacts, teams, chats, planner)
+6. **Phase 6 (task 14)** - Polish error handling
 7. **Phases 7, 8** - Finalize build and docs
+8. **Phase 9** - Create Claude Code skill for Awolve Office
 
 ## Dependencies
 
@@ -170,7 +207,7 @@ Recommended sequence:
 **No other new dependencies needed** - existing auth and tools are reused.
 
 **Distribution:**
-- Install from GitHub: `npm install -g github:awolve/ops-personal-m365-mcp`
+- Install from GitHub: `npm install -g github:awolve/ops-myoffice`
 - Document in Awolve Handbook
 
 ## Verification Checklist
@@ -179,13 +216,24 @@ After implementation, verify:
 
 - [ ] `npm run build` succeeds
 - [ ] `npm link` installs `myoffice` command
-- [ ] `myoffice --help` shows all categories
+- [ ] `myoffice --help` shows all categories (mail, calendar, tasks, files, sharepoint, contacts, teams, chats, planner)
 - [ ] `myoffice mail --help` shows mail actions
 - [ ] `myoffice mail list --help` shows options
 - [ ] `myoffice login` initiates device code flow
 - [ ] `myoffice status` shows auth state
+- [ ] `myoffice debug` shows debug info
 - [ ] `myoffice mail list` returns emails (human format)
 - [ ] `myoffice mail list --json` returns emails (JSON)
+- [ ] `myoffice teams list` returns teams
+- [ ] `myoffice chats list` returns chats
+- [ ] `myoffice planner plans` returns plans
 - [ ] Commands without auth show helpful error
 - [ ] Invalid commands show helpful error
 - [ ] MCP server still works (`npm run dev` + Claude Code)
+- [ ] Claude Code skill file exists at `skills/awolve-office.md`
+- [ ] Skill has correct frontmatter (name, description, trigger conditions)
+- [ ] Skill distinguishes MyOffice (personal) from M365 MCP (admin) and Gmail/Google
+- [ ] Skill includes installation instructions (npm install from GitHub)
+- [ ] Skill includes env var setup guidance (M365_CLIENT_ID)
+- [ ] Skill includes authentication guidance (myoffice login)
+- [ ] Skill handles error cases (not installed, not authenticated)

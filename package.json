@@ -5,18 +5,20 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "myoffice-mcp": "dist/index.js"
+    "myoffice-mcp": "dist/index.js",
+    "myoffice": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "login": "tsx src/auth/login.ts"
+    "login": "tsx src/cli.ts login"
   },
   "dependencies": {
     "@azure/identity": "^4.2.0",
     "@azure/msal-node": "^2.9.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "commander": "^12.1.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

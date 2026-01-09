@@ -4,11 +4,20 @@
 
 A lightweight MCP (Model Context Protocol) server providing personal Microsoft 365 access via Microsoft Graph API. Uses delegated authentication - users authenticate as themselves and can only access their own data.
 
+**Two entry points:**
+- `myoffice-mcp` - MCP server for AI assistants (Claude Code MCP integration)
+- `myoffice` - CLI for terminal use (Claude Code can call via Bash)
+
 ## Architecture
 
 ```
 src/
-├── index.ts           # MCP server entry point, tool definitions and routing
+├── index.ts           # MCP server entry point, tool definitions
+├── cli.ts             # CLI entry point (Commander.js)
+├── core/
+│   └── handler.ts     # Shared tool dispatch logic
+├── cli/
+│   └── formatter.ts   # Human-readable output formatting
 ├── auth/
 │   ├── config.ts      # Azure AD client config and scopes
 │   ├── device-code.ts # Device code authentication flow
@@ -33,7 +42,10 @@ src/
 
 ## Key Files
 
-- `src/index.ts` - MCP server entry point, tool definitions (TOOLS array), and routing (switch statement)
+- `src/index.ts` - MCP server entry point, tool definitions (TOOLS array)
+- `src/cli.ts` - CLI entry point with all commands
+- `src/core/handler.ts` - Shared tool dispatch (used by both MCP and CLI)
+- `src/cli/formatter.ts` - Human-readable output formatting
 - `src/auth/config.ts` - Azure AD scopes (add new permissions here)
 - `src/utils/graph-client.ts` - All Graph API calls go through this
 - `src/tools/*.ts` - Individual tool implementations
@@ -62,6 +74,114 @@ npm run build  # Compile to dist/
 npm run login  # Authenticate with Microsoft
 ```
 
+## CLI Usage
+
+The `myoffice` CLI provides terminal access to all Microsoft 365 tools.
+
+### Installation & Authentication
+
+```bash
+npm install -g github:awolve/ops-myoffice
+
+# Add to ~/.zshrc (required for all commands)
+export M365_CLIENT_ID="your-azure-app-client-id"
+
+# Authenticate (opens browser for device code flow)
+myoffice login
+```
+
+**Note:** `M365_CLIENT_ID` must be set for every command. Add it to your shell profile for convenience.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `myoffice login` | Authenticate with Microsoft 365 |
+| `myoffice status` | Check authentication status |
+| `myoffice debug` | Show server and auth info |
+
+**Mail:**
+- `myoffice mail list [--folder <name>] [--unread]` - List emails
+- `myoffice mail read <id>` - Read email
+- `myoffice mail search <query>` - Search emails
+- `myoffice mail send --to <addr> --subject <subj> --body <body>` - Send email
+- `myoffice mail reply <id> --body <body> [--all]` - Reply to email
+- `myoffice mail delete <id>` - Delete email
+- `myoffice mail mark <id> [--unread]` - Mark as read/unread
+
+**Calendar:**
+- `myoffice calendar list [--start <date>] [--end <date>]` - List events
+- `myoffice calendar get <id>` - Get event details
+- `myoffice calendar create --subject <subj> --start <dt> --end <dt>` - Create event
+- `myoffice calendar update <id> [--subject <s>] [--start <dt>]` - Update event
+- `myoffice calendar delete <id>` - Delete event
+
+**Tasks (Microsoft To Do):**
+- `myoffice tasks lists` - List task lists
+- `myoffice tasks list [--list <id>] [--completed]` - List tasks
+- `myoffice tasks create <title> [--list <id>] [--due <date>]` - Create task
+- `myoffice tasks update <id> [--title <t>] [--due <date>]` - Update task
+- `myoffice tasks complete <id>` - Mark task complete
+- `myoffice tasks delete <id>` - Delete task
+
+**Files (OneDrive):**
+- `myoffice files list [path]` - List files
+- `myoffice files get <path>` - Get file metadata
+- `myoffice files search <query>` - Search files
+- `myoffice files read <path>` - Read text file content
+- `myoffice files mkdir <name> [--parent <path>]` - Create folder
+- `myoffice files shared` - List files shared with me
+
+**SharePoint:**
+- `myoffice sharepoint sites [--search <query>]` - List sites
+- `myoffice sharepoint site <id>` - Get site details
+- `myoffice sharepoint drives <siteId>` - List document libraries
+- `myoffice sharepoint files <driveId> [path]` - List files
+- `myoffice sharepoint file <driveId> <path>` - Get file metadata
+- `myoffice sharepoint read <driveId> <path>` - Read file content
+- `myoffice sharepoint search <driveId> <query>` - Search files
+
+**Contacts:**
+- `myoffice contacts list` - List contacts
+- `myoffice contacts search <query>` - Search contacts
+- `myoffice contacts get <id>` - Get contact details
+
+**Teams:**
+- `myoffice teams list` - List teams
+- `myoffice teams channels <teamId>` - List channels
+- `myoffice teams messages <teamId> <channelId>` - List channel messages
+- `myoffice teams post <teamId> <channelId> <message>` - Post message
+
+**Chats:**
+- `myoffice chats list` - List chats
+- `myoffice chats messages <chatId>` - List chat messages
+- `myoffice chats send <chatId> <message>` - Send message
+- `myoffice chats create <email> [message]` - Create/start chat
+
+**Planner:**
+- `myoffice planner plans [--group <id>]` - List plans
+- `myoffice planner plan <id>` - Get plan details
+- `myoffice planner buckets <planId>` - List buckets
+- `myoffice planner bucket-create <planId> <name>` - Create bucket
+- `myoffice planner bucket-update <id> <name>` - Update bucket
+- `myoffice planner bucket-delete <id>` - Delete bucket
+- `myoffice planner tasks <planId> [--bucket <id>]` - List tasks
+- `myoffice planner task <id>` - Get task details
+- `myoffice planner task-create <planId> <title> [--bucket <id>]` - Create task
+- `myoffice planner task-update <id> [--title <t>] [--progress <p>]` - Update task
+- `myoffice planner task-delete <id>` - Delete task
+- `myoffice planner task-details <id>` - Get task details (description, checklist)
+- `myoffice planner task-details-update <id> [--description <d>]` - Update details
+
+### Output Format
+
+By default, CLI outputs human-readable tables. Use `--json` flag for JSON output:
+
+```bash
+myoffice mail list --json
+myoffice --json calendar list
+```
+
 ## Testing
 
 No automated tests currently. Test manually by running the MCP server and calling tools via Claude Code.
@@ -74,6 +194,7 @@ Feature specs are in `specs/` directory:
 - `001-personal-m365-mcp/` - Initial implementation (requirements, design, tasks)
 - `002 shared-onedrive-sharepoint/` - SharePoint and shared files access
 - `003 version-management/` - Dynamic version from package.json
+- `007 cli-interface/` - CLI for terminal access
 - `008 teams-integration/` - Teams and chats support
 - `009-planner-integration/` - Microsoft Planner support (plans, buckets, tasks)
 

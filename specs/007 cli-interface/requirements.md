@@ -2,16 +2,16 @@
 
 ## Overview
 
-Add a command-line interface (`myoffice`) that exposes the existing M365 MCP tools for direct terminal use. Primary use case is enabling Claude to call tools via the Bash tool without MCP protocol overhead, while also being usable directly by humans in terminal.
+Add a command-line interface (`myoffice`) that exposes the existing MyOffice MCP tools for direct terminal use. Primary use case is enabling Claude to call tools via the Bash tool without MCP protocol overhead, while also being usable directly by humans in terminal.
 
 ## User Stories
 
 **As a** Claude Code user
-**I want** Claude to call M365 tools directly via Bash
-**So that** I can use M365 functionality without requiring MCP server setup
+**I want** Claude to call MyOffice tools directly via Bash
+**So that** I can use Microsoft 365 functionality without requiring MCP server setup
 
 **As a** developer
-**I want** to query my M365 data from the terminal
+**I want** to query my Microsoft 365 data from the terminal
 **So that** I can script and automate personal workflows
 
 **As a** power user
@@ -53,12 +53,15 @@ Based on existing tools:
 
 | Category | Commands |
 |----------|----------|
-| `mail` | list, read, send, reply, search, move, delete |
-| `calendar` | list, create, update, delete |
-| `tasks` | lists, list, create, complete, delete |
-| `files` | list, search, read, download, upload, shared |
-| `sharepoint` | sites, libraries, files |
-| `contacts` | list, search, create |
+| `mail` | list, read, send, reply, search, delete, mark |
+| `calendar` | list, get, create, update, delete |
+| `tasks` | lists, list, create, update, complete, delete |
+| `files` | list, get, search, read, mkdir, shared |
+| `sharepoint` | sites, site, drives, files, file, read, search |
+| `contacts` | list, search, get, create, update |
+| `teams` | list, channels, messages, post |
+| `chats` | list, messages, send, create |
+| `planner` | plans, plan, buckets, bucket-create, bucket-update, bucket-delete, tasks, task, task-create, task-update, task-delete, task-details, task-details-update |
 
 ## Edge Cases
 

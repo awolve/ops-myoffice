@@ -138,21 +138,82 @@ No new data models. Tool inputs/outputs unchanged.
 
 | CLI Command | Tool Name | Example |
 |-------------|-----------|---------|
+| **Mail** |||
 | `mail list` | `mail_list` | `myoffice mail list --unread` |
 | `mail read` | `mail_read` | `myoffice mail read --id ABC123` |
 | `mail send` | `mail_send` | `myoffice mail send --to x@y.com --subject Hi --body Hello` |
+| `mail reply` | `mail_reply` | `myoffice mail reply --id ABC123 --body "Thanks"` |
+| `mail search` | `mail_search` | `myoffice mail search --query "invoice"` |
+| `mail delete` | `mail_delete` | `myoffice mail delete --id ABC123` |
+| `mail mark` | `mail_mark_read` | `myoffice mail mark --id ABC123 --unread` |
+| **Calendar** |||
 | `calendar list` | `calendar_list` | `myoffice calendar list --start 2024-01-01` |
-| `tasks list` | `tasks_list` | `myoffice tasks list` |
+| `calendar get` | `calendar_get` | `myoffice calendar get --id ABC123` |
+| `calendar create` | `calendar_create` | `myoffice calendar create --subject "Meeting" --start ...` |
+| `calendar update` | `calendar_update` | `myoffice calendar update --id ABC123 --subject "New title"` |
+| `calendar delete` | `calendar_delete` | `myoffice calendar delete --id ABC123` |
+| **Tasks (To Do)** |||
+| `tasks lists` | `tasks_list_lists` | `myoffice tasks lists` |
+| `tasks list` | `tasks_list` | `myoffice tasks list --list-id ABC123` |
+| `tasks create` | `tasks_create` | `myoffice tasks create --title "Buy milk"` |
+| `tasks update` | `tasks_update` | `myoffice tasks update --id ABC123 --title "New title"` |
+| `tasks complete` | `tasks_complete` | `myoffice tasks complete --id ABC123` |
+| `tasks delete` | `tasks_delete` | `myoffice tasks delete --id ABC123` |
+| **Files (OneDrive)** |||
 | `files list` | `onedrive_list` | `myoffice files list --path /Documents` |
+| `files get` | `onedrive_get` | `myoffice files get --path /Documents/file.txt` |
+| `files search` | `onedrive_search` | `myoffice files search --query "report"` |
+| `files read` | `onedrive_read` | `myoffice files read --path /Documents/file.txt` |
+| `files mkdir` | `onedrive_create_folder` | `myoffice files mkdir --name "New Folder"` |
+| `files shared` | `onedrive_shared_with_me` | `myoffice files shared` |
+| **SharePoint** |||
 | `sharepoint sites` | `sharepoint_list_sites` | `myoffice sharepoint sites` |
+| `sharepoint site` | `sharepoint_get_site` | `myoffice sharepoint site --id ABC123` |
+| `sharepoint drives` | `sharepoint_list_drives` | `myoffice sharepoint drives --site-id ABC123` |
+| `sharepoint files` | `sharepoint_list_files` | `myoffice sharepoint files --drive-id ABC123` |
+| `sharepoint file` | `sharepoint_get_file` | `myoffice sharepoint file --drive-id ABC --path /doc.txt` |
+| `sharepoint read` | `sharepoint_read_file` | `myoffice sharepoint read --drive-id ABC --path /doc.txt` |
+| `sharepoint search` | `sharepoint_search_files` | `myoffice sharepoint search --drive-id ABC --query "budget"` |
+| **Contacts** |||
 | `contacts list` | `contacts_list` | `myoffice contacts list` |
+| `contacts search` | `contacts_search` | `myoffice contacts search --query "john"` |
+| `contacts get` | `contacts_get` | `myoffice contacts get --id ABC123` |
+| `contacts create` | `contacts_create` | `myoffice contacts create --given-name John --email j@x.com` |
+| `contacts update` | `contacts_update` | `myoffice contacts update --id ABC123 --job-title "Manager"` |
+| **Teams** |||
+| `teams list` | `teams_list` | `myoffice teams list` |
+| `teams channels` | `teams_channels` | `myoffice teams channels --team-id ABC123` |
+| `teams messages` | `teams_channel_messages` | `myoffice teams messages --team-id ABC --channel-id XYZ` |
+| `teams post` | `teams_channel_post` | `myoffice teams post --team-id ABC --channel-id XYZ --content "Hello"` |
+| **Chats** |||
+| `chats list` | `chats_list` | `myoffice chats list` |
+| `chats messages` | `chats_messages` | `myoffice chats messages --chat-id ABC123` |
+| `chats send` | `chats_send` | `myoffice chats send --chat-id ABC123 --content "Hi"` |
+| `chats create` | `chats_create` | `myoffice chats create --members user@example.com` |
+| **Planner** |||
+| `planner plans` | `planner_list_plans` | `myoffice planner plans` |
+| `planner plan` | `planner_get_plan` | `myoffice planner plan --id ABC123` |
+| `planner buckets` | `planner_list_buckets` | `myoffice planner buckets --plan-id ABC123` |
+| `planner bucket-create` | `planner_create_bucket` | `myoffice planner bucket-create --plan-id ABC --name "To Do"` |
+| `planner bucket-update` | `planner_update_bucket` | `myoffice planner bucket-update --id ABC --name "Done"` |
+| `planner bucket-delete` | `planner_delete_bucket` | `myoffice planner bucket-delete --id ABC123` |
+| `planner tasks` | `planner_list_tasks` | `myoffice planner tasks --plan-id ABC123` |
+| `planner task` | `planner_get_task` | `myoffice planner task --id ABC123` |
+| `planner task-create` | `planner_create_task` | `myoffice planner task-create --plan-id ABC --title "Do thing"` |
+| `planner task-update` | `planner_update_task` | `myoffice planner task-update --id ABC --progress completed` |
+| `planner task-delete` | `planner_delete_task` | `myoffice planner task-delete --id ABC123` |
+| `planner task-details` | `planner_get_task_details` | `myoffice planner task-details --id ABC123` |
+| `planner task-details-update` | `planner_update_task_details` | `myoffice planner task-details-update --id ABC --description "..."` |
+| **System** |||
 | `login` | (special) | `myoffice login` |
 | `status` | `auth_status` | `myoffice status` |
+| `debug` | `debug_info` | `myoffice debug` |
 
 **Naming convention:**
 - Category names are user-friendly (`files` not `onedrive`)
 - Actions match tool suffix after `_`
 - Parameters become `--flag-name` (kebab-case)
+- Compound actions use hyphenated names (`bucket-create`, `task-details`)
 
 ## Help Output Specification
 
@@ -164,14 +225,18 @@ myoffice - Access your Microsoft 365 data from the command line
 Usage: myoffice <command> [options]
 
 Commands:
-  mail        Email operations (list, read, send, reply, search, delete)
-  calendar    Calendar events (list, create, update, delete)
-  tasks       Microsoft To Do (lists, tasks, create, complete)
-  files       OneDrive files (list, read, search, upload)
+  mail        Email operations (list, read, send, reply, search, delete, mark)
+  calendar    Calendar events (list, get, create, update, delete)
+  tasks       Microsoft To Do (lists, list, create, update, complete, delete)
+  files       OneDrive files (list, get, search, read, mkdir, shared)
   sharepoint  SharePoint sites and document libraries
-  contacts    Contacts (list, search, create)
+  contacts    Contacts (list, search, get, create, update)
+  teams       Teams channels and messages
+  chats       1:1 and group chats
+  planner     Planner plans, buckets, and tasks
   login       Authenticate with Microsoft 365
   status      Check authentication status
+  debug       Show debug information
 
 Options:
   --json      Output as JSON (default: human-readable)
@@ -182,6 +247,7 @@ Examples:
   myoffice mail list --unread
   myoffice calendar list --start 2024-01-15
   myoffice files list --path /Documents
+  myoffice planner tasks --plan-id ABC123
   myoffice login
 
 Run 'myoffice <command> --help' for command-specific options.
@@ -337,11 +403,11 @@ Distributed via **Awolve Handbook** - install directly from GitHub:
 
 ```bash
 # Install globally from GitHub
-npm install -g github:awolve/ops-personal-m365-mcp
+npm install -g github:awolve/ops-myoffice
 
 # Or clone and link for development
-git clone https://github.com/awolve/ops-personal-m365-mcp.git
-cd ops-personal-m365-mcp
+git clone https://github.com/awolve/ops-myoffice.git
+cd ops-myoffice
 npm install && npm run build
 npm link
 ```
@@ -407,9 +473,71 @@ src/
 │   │   ├── tasks.ts
 │   │   ├── files.ts
 │   │   ├── sharepoint.ts
-│   │   └── contacts.ts
+│   │   ├── contacts.ts
+│   │   ├── teams.ts
+│   │   ├── chats.ts
+│   │   └── planner.ts
 │   └── formatter.ts      # Output formatting (new)
 ├── tools/                # Unchanged
 ├── auth/                 # Unchanged
 └── utils/                # Unchanged
+
+skills/
+└── awolve-office.md      # Claude Code skill for MyOffice operations (new)
 ```
+
+## Claude Code Skill
+
+A skill file that helps Claude Code users interact with their Awolve/work Microsoft 365 account via the `myoffice` CLI.
+
+### Skill: `awolve-office.md`
+
+**Purpose:** Guide Claude to use the `myoffice` CLI for personal Microsoft 365 operations (the user's own mail, calendar, files, etc.), avoiding confusion with:
+1. Personal Gmail/Google Calendar
+2. M365 MCP (the separate admin MCP for tenant-level operations)
+
+**Important distinction:**
+- **MyOffice CLI** = personal user operations (your own inbox, calendar, OneDrive, Teams chats)
+- **M365 MCP** = admin operations (managing users, groups, policies, tenant settings)
+
+**Trigger conditions:**
+- User asks about their own work email or Outlook
+- User asks about their own work calendar
+- User asks about their Teams channels/chats
+- User asks about their SharePoint or OneDrive files
+- User asks about their Planner tasks
+- User mentions "Awolve" in context of personal email/calendar/files
+- User asks to check/send their own messages
+
+**Key behaviors:**
+- Always use `myoffice` CLI with `--json` flag for parsing
+- Distinguish personal Microsoft 365 (MyOffice) from admin operations (M365 MCP)
+- Distinguish work (Microsoft 365/Outlook) from personal accounts (Gmail/Google Calendar)
+- Check if CLI is installed before using (`which myoffice`)
+- Check auth status before operations (`myoffice status --json`)
+- Guide user through installation and authentication if needed
+- Format results in human-readable way after parsing JSON
+
+**Installation & Setup guidance the skill should provide:**
+
+1. **Check if installed:** `which myoffice`
+2. **Install if missing:**
+   ```bash
+   npm install -g github:awolve/ops-myoffice
+   ```
+3. **Set environment variable:** User needs `M365_CLIENT_ID` set (refer to Awolve Handbook for shared credentials)
+4. **Authenticate:** `myoffice login` - initiates device code flow
+5. **Verify:** `myoffice status` - confirms authentication
+
+**Error handling:**
+- "command not found: myoffice" → Guide through installation
+- "Not authenticated" error → Guide to run `myoffice login`
+- "M365_CLIENT_ID not set" → Explain env var setup, point to handbook
+- Auth token expired → Suggest `myoffice login` to re-authenticate
+
+**Example interactions:**
+- "Check my work email" → First check `myoffice status --json`, then `myoffice mail list --json`
+- "What meetings do I have today?" (work context) → `myoffice calendar list --json`
+- "Send a message to the team" → `myoffice teams post` or `myoffice chats send`
+- "What's on my Planner?" → `myoffice planner plans` then `myoffice planner tasks`
+- "How do I set up myoffice?" → Walk through installation and authentication steps
