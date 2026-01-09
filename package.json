@@ -11,6 +11,7 @@
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
+    "postinstall": "echo '\n✅ awolve-myoffice-cli installed!\n\nIf \"myoffice\" command is not found, add npm global bin to PATH:\n  export PATH=\"$(npm bin -g):$PATH\"\n\nOr use npx:\n  npx awolve-myoffice-cli --help\n'",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "login": "tsx src/cli.ts login"
