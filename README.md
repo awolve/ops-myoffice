@@ -153,25 +153,111 @@ Or with full path if not installed globally:
 ## Development
 
 ```bash
-npm run dev      # Run with tsx
-npm run build    # Compile TypeScript
-npm run login    # Authenticate
+npm install      # Install dependencies
+npm run dev      # Run with tsx (no build needed)
+npm run build    # Compile TypeScript to dist/
+npm run login    # Authenticate with Microsoft
 ```
 
-## Publishing
+### Project Structure
 
-To publish a new version to npm:
+```
+src/
+├── index.ts           # MCP server entry point
+├── cli.ts             # CLI entry point (Commander.js)
+├── core/
+│   └── handler.ts     # Shared tool dispatch logic
+├── cli/
+│   └── formatter.ts   # Human-readable output formatting
+├── auth/              # Authentication (device code flow, token cache)
+├── tools/             # Microsoft Graph API implementations
+└── utils/             # Graph client, version helper
+```
+
+### Testing Locally
 
 ```bash
-# 1. Update version in package.json
-npm version patch  # or minor/major
+# Test CLI directly (no build needed)
+npx tsx src/cli.ts mail list
 
-# 2. Build and publish
+# Or build first then test
+npm run build
+node dist/cli.js mail list
+
+# Test MCP server
+npm run dev
+```
+
+## Deploying to npm
+
+The package is published to npm as `awolve-myoffice-cli`.
+
+### First-Time Setup
+
+1. Create npm account at https://www.npmjs.com/signup
+2. Login from terminal:
+   ```bash
+   npm login
+   ```
+
+### Publishing a New Version
+
+```bash
+# 1. Make sure you're on main branch with clean working directory
+git checkout main
+git pull
+git status  # Should be clean
+
+# 2. Run tests / verify everything works
+npm run build
+node dist/cli.js --help
+
+# 3. Bump version (choose one)
+npm version patch  # 1.1.0 -> 1.1.1 (bug fixes)
+npm version minor  # 1.1.0 -> 1.2.0 (new features)
+npm version major  # 1.1.0 -> 2.0.0 (breaking changes)
+
+# 4. Publish to npm (builds automatically via prepublishOnly)
 npm publish --access public
 
-# 3. Commit and push
+# 5. Push version commit and tag to GitHub
 git push && git push --tags
 ```
+
+### What Gets Published
+
+The `files` field in package.json controls what's included:
+- `dist/**/*` - Compiled JavaScript
+- `README.md` - Documentation
+
+Source code (`src/`), specs, and dev files are NOT published.
+
+### Verifying Publication
+
+```bash
+# Check package on npm
+npm view awolve-myoffice-cli
+
+# Test fresh install
+npm install -g awolve-myoffice-cli
+myoffice --version
+```
+
+### Important: Version Immutability
+
+npm does not allow republishing the same version. Once `1.1.0` is published, that version number is permanently taken. If you need to fix something:
+
+1. Bump to a new version (`npm version patch` → `1.1.1`)
+2. Publish the new version
+
+There is no way to "update" an existing version.
+
+### Troubleshooting
+
+- **"You must be logged in"** - Run `npm login`
+- **"Package name already exists"** - Name is taken, choose another
+- **"Cannot publish over existing version"** - Bump version with `npm version patch`
+- **Build fails during publish** - Fix TypeScript errors first
 
 ## Security
 
