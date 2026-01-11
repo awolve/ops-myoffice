@@ -572,6 +572,7 @@ contactsCmd
   .option('--business-phone <phone>', 'Business phone')
   .option('--company <name>', 'Company name')
   .option('--job-title <title>', 'Job title')
+  .option('--notes <text>', 'Personal notes about the contact')
   .action(async (opts) => {
     await runCommand('contacts_create', {
       givenName: opts.givenName,
@@ -581,6 +582,7 @@ contactsCmd
       businessPhone: opts.businessPhone,
       companyName: opts.company,
       jobTitle: opts.jobTitle,
+      notes: opts.notes,
     });
   });
 
@@ -595,6 +597,7 @@ contactsCmd
   .option('--business-phone <phone>', 'Business phone')
   .option('--company <name>', 'Company name')
   .option('--job-title <title>', 'Job title')
+  .option('--notes <text>', 'Personal notes about the contact')
   .action(async (opts) => {
     await runCommand('contacts_update', {
       contactId: opts.id,
@@ -605,6 +608,7 @@ contactsCmd
       businessPhone: opts.businessPhone,
       companyName: opts.company,
       jobTitle: opts.jobTitle,
+      notes: opts.notes,
     });
   });
 

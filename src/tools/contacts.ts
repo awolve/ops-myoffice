@@ -12,6 +12,7 @@ interface Contact {
   mobilePhone?: string;
   companyName?: string;
   jobTitle?: string;
+  personalNotes?: string;
 }
 
 // Schemas
@@ -36,6 +37,7 @@ export const createContactSchema = z.object({
   businessPhone: z.string().optional().describe('Business phone number'),
   companyName: z.string().optional().describe('Company name'),
   jobTitle: z.string().optional().describe('Job title'),
+  notes: z.string().optional().describe('Personal notes about the contact'),
 });
 
 export const updateContactSchema = z.object({
@@ -47,13 +49,14 @@ export const updateContactSchema = z.object({
   businessPhone: z.string().optional().describe('Business phone number'),
   companyName: z.string().optional().describe('Company name'),
   jobTitle: z.string().optional().describe('Job title'),
+  notes: z.string().optional().describe('Personal notes about the contact'),
 });
 
 // Tool implementations
 export async function listContacts(params: z.infer<typeof listContactsSchema>) {
   const { maxItems = 50 } = params;
 
-  const path = `/me/contacts?$select=id,displayName,givenName,surname,emailAddresses,businessPhones,mobilePhone,companyName,jobTitle&$orderby=displayName&$top=${maxItems}`;
+  const path = `/me/contacts?$select=id,displayName,givenName,surname,emailAddresses,businessPhones,mobilePhone,companyName,jobTitle,personalNotes&$orderby=displayName&$top=${maxItems}`;
 
   const contacts = await graphList<Contact>(path, { maxItems });
 
@@ -66,6 +69,7 @@ export async function listContacts(params: z.infer<typeof listContactsSchema>) {
     phone: c.mobilePhone || c.businessPhones?.[0],
     company: c.companyName,
     title: c.jobTitle,
+    notes: c.personalNotes,
   }));
 }
 
@@ -74,7 +78,7 @@ export async function searchContacts(params: z.infer<typeof searchContactsSchema
 
   // Use $filter for search since contacts don't support $search
   const encodedQuery = encodeURIComponent(query);
-  const path = `/me/contacts?$filter=contains(displayName,'${encodedQuery}') or contains(givenName,'${encodedQuery}') or contains(surname,'${encodedQuery}')&$select=id,displayName,emailAddresses,businessPhones,mobilePhone,companyName&$top=${maxItems}`;
+  const path = `/me/contacts?$filter=contains(displayName,'${encodedQuery}') or contains(givenName,'${encodedQuery}') or contains(surname,'${encodedQuery}')&$select=id,displayName,emailAddresses,businessPhones,mobilePhone,companyName,personalNotes&$top=${maxItems}`;
 
   const contacts = await graphList<Contact>(path, { maxItems });
 
@@ -84,6 +88,7 @@ export async function searchContacts(params: z.infer<typeof searchContactsSchema
     email: c.emailAddresses?.[0]?.address,
     phone: c.mobilePhone || c.businessPhones?.[0],
     company: c.companyName,
+    notes: c.personalNotes,
   }));
 }
 
@@ -91,7 +96,7 @@ export async function getContact(params: z.infer<typeof getContactSchema>) {
   const { contactId } = params;
 
   const contact = await graphRequest<Contact>(
-    `/me/contacts/${contactId}?$select=id,displayName,givenName,surname,emailAddresses,businessPhones,mobilePhone,companyName,jobTitle`
+    `/me/contacts/${contactId}?$select=id,displayName,givenName,surname,emailAddresses,businessPhones,mobilePhone,companyName,jobTitle,personalNotes`
   );
 
   return {
@@ -104,11 +109,12 @@ export async function getContact(params: z.infer<typeof getContactSchema>) {
     mobilePhone: contact.mobilePhone,
     company: contact.companyName,
     title: contact.jobTitle,
+    notes: contact.personalNotes,
   };
 }
 
 export async function createContact(params: z.infer<typeof createContactSchema>) {
-  const { givenName, surname, email, mobilePhone, businessPhone, companyName, jobTitle } = params;
+  const { givenName, surname, email, mobilePhone, businessPhone, companyName, jobTitle, notes } = params;
 
   const body: Record<string, unknown> = {};
 
@@ -121,6 +127,7 @@ export async function createContact(params: z.infer<typeof createContactSchema>)
   if (businessPhone) body.businessPhones = [businessPhone];
   if (companyName) body.companyName = companyName;
   if (jobTitle) body.jobTitle = jobTitle;
+  if (notes) body.personalNotes = notes;
 
   const contact = await graphRequest<Contact>('/me/contacts', {
     method: 'POST',
@@ -136,7 +143,7 @@ export async function createContact(params: z.infer<typeof createContactSchema>)
 }
 
 export async function updateContact(params: z.infer<typeof updateContactSchema>) {
-  const { contactId, givenName, surname, email, mobilePhone, businessPhone, companyName, jobTitle } = params;
+  const { contactId, givenName, surname, email, mobilePhone, businessPhone, companyName, jobTitle, notes } = params;
 
   const body: Record<string, unknown> = {};
 
@@ -149,6 +156,7 @@ export async function updateContact(params: z.infer<typeof updateContactSchema>)
   if (businessPhone !== undefined) body.businessPhones = [businessPhone];
   if (companyName !== undefined) body.companyName = companyName;
   if (jobTitle !== undefined) body.jobTitle = jobTitle;
+  if (notes !== undefined) body.personalNotes = notes;
 
   const contact = await graphRequest<Contact>(`/me/contacts/${contactId}`, {
     method: 'PATCH',
