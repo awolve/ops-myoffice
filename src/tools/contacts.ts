@@ -75,19 +75,57 @@ export async function listContacts(params: z.infer<typeof listContactsSchema>) {
 
 export async function searchContacts(params: z.infer<typeof searchContactsSchema>) {
   const { query, maxItems = 25 } = params;
+  const queryLower = query.toLowerCase();
 
-  // Use $filter for search since contacts don't support $search
+  // First, search using API filter (name, company, job title - Graph API supports these)
   const encodedQuery = encodeURIComponent(query);
-  const path = `/me/contacts?$filter=contains(displayName,'${encodedQuery}') or contains(givenName,'${encodedQuery}') or contains(surname,'${encodedQuery}')&$select=id,displayName,emailAddresses,businessPhones,mobilePhone,companyName,personalNotes&$top=${maxItems}`;
+  const filters = [
+    `contains(displayName,'${encodedQuery}')`,
+    `contains(givenName,'${encodedQuery}')`,
+    `contains(surname,'${encodedQuery}')`,
+    `contains(companyName,'${encodedQuery}')`,
+    `contains(jobTitle,'${encodedQuery}')`,
+  ].join(' or ');
 
-  const contacts = await graphList<Contact>(path, { maxItems });
+  const path = `/me/contacts?$filter=${filters}&$select=id,displayName,emailAddresses,businessPhones,mobilePhone,companyName,jobTitle,personalNotes&$top=${maxItems}`;
 
-  return contacts.map((c) => ({
+  let contacts: Contact[] = [];
+  try {
+    contacts = await graphList<Contact>(path, { maxItems });
+  } catch {
+    // If filter fails, fall back to getting all and filtering locally
+  }
+
+  // Also get all contacts to search notes and emails (not supported by $filter)
+  const allPath = `/me/contacts?$select=id,displayName,emailAddresses,businessPhones,mobilePhone,companyName,jobTitle,personalNotes&$top=500`;
+  const allContacts = await graphList<Contact>(allPath, { maxItems: 500 });
+
+  // Search locally in notes and emails
+  const localMatches = allContacts.filter((c) => {
+    const searchable = [
+      c.personalNotes,
+      ...(c.emailAddresses?.map((e) => e.address) || []),
+    ].filter(Boolean);
+    return searchable.some((s) => s?.toLowerCase().includes(queryLower));
+  });
+
+  // Merge results, dedupe by id
+  const seen = new Set<string>();
+  const merged: Contact[] = [];
+  for (const c of [...contacts, ...localMatches]) {
+    if (!seen.has(c.id)) {
+      seen.add(c.id);
+      merged.push(c);
+    }
+  }
+
+  return merged.slice(0, maxItems).map((c) => ({
     id: c.id,
     name: c.displayName,
     email: c.emailAddresses?.[0]?.address,
     phone: c.mobilePhone || c.businessPhones?.[0],
     company: c.companyName,
+    title: c.jobTitle,
     notes: c.personalNotes,
   }));
 }
