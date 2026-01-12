@@ -131,6 +131,7 @@ myoffice login
 - `myoffice files read <path>` - Read text file content
 - `myoffice files mkdir <name> [--parent <path>]` - Create folder
 - `myoffice files shared` - List files shared with me
+- `myoffice files upload --file <path> [--dest <path>]` - Upload local file (any size)
 
 **SharePoint:**
 - `myoffice sharepoint sites [--search <query>]` - List sites
@@ -170,8 +171,11 @@ myoffice login
 - `myoffice planner task-create <planId> <title> [--bucket <id>]` - Create task
 - `myoffice planner task-update <id> [--title <t>] [--progress <p>]` - Update task
 - `myoffice planner task-delete <id>` - Delete task
-- `myoffice planner task-details <id>` - Get task details (description, checklist)
+- `myoffice planner task-details <id>` - Get task details (description, checklist, attachments)
 - `myoffice planner task-details-update <id> [--description <d>]` - Update details
+- `myoffice planner attach --id <taskId> --url <url> [--alias <name>]` - Add link/attachment to task
+- `myoffice planner detach --id <taskId> --url <url>` - Remove attachment from task
+- `myoffice planner upload --id <taskId> --file <path> [--alias <name>]` - Upload file and attach to task
 
 ### Output Format
 
@@ -219,7 +223,8 @@ Microsoft Planner provides team-oriented task management. Key concepts:
 - **Plans** - Read-only. Plans belong to M365 Groups, users can only see plans in groups they're members of.
 - **Buckets** - Columns within a plan. Full CRUD supported.
 - **Tasks** - Items within buckets. Full CRUD with assignments, due dates, priority, progress.
-- **Task Details** - Extended info: description, checklist items.
+- **Task Details** - Extended info: description, checklist items, references (attachments).
+- **References/Attachments** - Links to files or URLs. Planner doesn't store files directly; it stores references (URLs) to files in OneDrive, SharePoint, or external sites.
 
 **Important notes:**
 - All updates/deletes require ETags (handled internally - no user action needed)
@@ -227,3 +232,4 @@ Microsoft Planner provides team-oriented task management. Key concepts:
 - Progress values: `notStarted`, `inProgress`, `completed`
 - Priority values: `urgent`, `important`, `medium`, `low`
 - Plans cannot be created via MCP (would require M365 Group creation)
+- Attachments are stored as "references" (URLs). The `planner upload` command uploads to the plan's SharePoint site (accessible to all plan members) at `Planner Attachments/<Plan Name>/<filename>`. File type is auto-detected from the URL.

@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { graphRequest, graphList } from '../utils/graph-client.js';
+import { readFile } from 'fs/promises';
+import { basename } from 'path';
+import { graphRequest, graphList, graphUpload, graphUploadLarge } from '../utils/graph-client.js';
 
 // Types
 interface DriveItem {
@@ -40,6 +42,14 @@ export const createFolderSchema = z.object({
 
 export const listSharedWithMeSchema = z.object({
   maxItems: z.number().optional().describe('Maximum number of items. Default: 50'),
+});
+
+export const uploadFileSchema = z.object({
+  localPath: z.string().describe('Local file path to upload'),
+  remotePath: z
+    .string()
+    .optional()
+    .describe('Destination path in OneDrive (e.g., "Documents/file.pdf"). If omitted, uploads to root with original filename'),
 });
 
 // Tool implementations
@@ -193,4 +203,77 @@ export async function listSharedWithMe(params: z.infer<typeof listSharedWithMeSc
     remoteDriveType: item.remoteItem?.parentReference?.driveType,
     remoteItemId: item.remoteItem?.id,
   }));
+}
+
+// MIME type detection from file extension
+const MIME_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
+  '.xml': 'application/xml',
+  '.html': 'text/html',
+  '.htm': 'text/html',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.zip': 'application/zip',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+};
+
+function getMimeType(filename: string): string {
+  const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0] || '';
+  return MIME_TYPES[ext] || 'application/octet-stream';
+}
+
+export async function uploadFile(params: z.infer<typeof uploadFileSchema>) {
+  const { localPath, remotePath } = params;
+
+  // Read the local file
+  const content = await readFile(localPath);
+
+  // Determine the destination path
+  const filename = basename(localPath);
+  const destPath = remotePath || filename;
+
+  // Get MIME type
+  const contentType = getMimeType(filename);
+
+  // Choose upload method based on file size
+  // Simple upload for files <= 4MB, resumable for larger
+  const MAX_SIMPLE_UPLOAD = 4 * 1024 * 1024;
+  let uploaded: DriveItem;
+
+  if (content.length <= MAX_SIMPLE_UPLOAD) {
+    // Simple upload (single request)
+    uploaded = await graphUpload<DriveItem>(
+      `/me/drive/root:/${destPath}:/content`,
+      content,
+      { contentType }
+    );
+  } else {
+    // Resumable upload for large files
+    uploaded = await graphUploadLarge<DriveItem>(
+      `/me/drive/root:/${destPath}`,
+      content
+    );
+  }
+
+  return {
+    success: true,
+    id: uploaded.id,
+    name: uploaded.name,
+    size: uploaded.size,
+    webUrl: uploaded.webUrl,
+    mimeType: uploaded.file?.mimeType,
+  };
 }

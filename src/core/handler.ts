@@ -107,6 +107,9 @@ export async function executeCommand(
       case 'onedrive_shared_with_me':
         result = await onedrive.listSharedWithMe(onedrive.listSharedWithMeSchema.parse(args));
         break;
+      case 'onedrive_upload':
+        result = await onedrive.uploadFile(onedrive.uploadFileSchema.parse(args));
+        break;
 
       // SharePoint
       case 'sharepoint_list_sites':
@@ -215,6 +218,15 @@ export async function executeCommand(
         break;
       case 'planner_update_task_details':
         result = await planner.updatePlannerTaskDetails(planner.updatePlannerTaskDetailsSchema.parse(args));
+        break;
+      case 'planner_add_reference':
+        result = await planner.addPlannerTaskReference(planner.addPlannerTaskReferenceSchema.parse(args));
+        break;
+      case 'planner_remove_reference':
+        result = await planner.removePlannerTaskReference(planner.removePlannerTaskReferenceSchema.parse(args));
+        break;
+      case 'planner_upload_attach':
+        result = await planner.uploadAndAttach(planner.uploadAndAttachSchema.parse(args));
         break;
 
       // Auth

@@ -349,6 +349,21 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'onedrive_upload',
+    description: 'Upload a local file to OneDrive',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        localPath: { type: 'string', description: 'Local file path to upload' },
+        remotePath: {
+          type: 'string',
+          description: 'Destination path in OneDrive (e.g., "Documents/file.pdf"). If omitted, uploads to root with original filename',
+        },
+      },
+      required: ['localPath'],
+    },
+  },
 
   // SharePoint
   {
@@ -774,6 +789,53 @@ const TOOLS = [
         },
       },
       required: ['taskId'],
+    },
+  },
+  {
+    name: 'planner_add_reference',
+    description: 'Add a link/attachment to a Planner task. Files must be uploaded to OneDrive/SharePoint first, then the URL can be attached.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        url: { type: 'string', description: 'URL of the file or link to attach' },
+        alias: { type: 'string', description: 'Display name for the attachment' },
+        type: {
+          type: 'string',
+          enum: ['Word', 'Excel', 'PowerPoint', 'OneNote', 'SharePoint', 'OneDrive', 'Other', 'Pdf'],
+          description: 'File type (auto-detected if not provided)',
+        },
+      },
+      required: ['taskId', 'url'],
+    },
+  },
+  {
+    name: 'planner_remove_reference',
+    description: 'Remove an attachment/link from a Planner task',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        url: { type: 'string', description: 'URL of the reference to remove' },
+      },
+      required: ['taskId', 'url'],
+    },
+  },
+  {
+    name: 'planner_upload_attach',
+    description: 'Upload a local file to OneDrive and attach it to a Planner task in one step',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The Planner task ID' },
+        localPath: { type: 'string', description: 'Local file path to upload' },
+        remotePath: {
+          type: 'string',
+          description: 'Destination path in OneDrive. If omitted, uploads to "Planner Attachments/<filename>"',
+        },
+        alias: { type: 'string', description: 'Display name for the attachment' },
+      },
+      required: ['taskId', 'localPath'],
     },
   },
 

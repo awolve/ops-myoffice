@@ -374,7 +374,7 @@ tasksCmd
 // Files (OneDrive) commands
 const filesCmd = program
   .command('files')
-  .description('OneDrive files (list, get, search, read, mkdir, shared)');
+  .description('OneDrive files (list, get, search, read, mkdir, shared, upload)');
 
 filesCmd
   .command('list')
@@ -435,6 +435,18 @@ filesCmd
   .action(async (opts) => {
     await runCommand('onedrive_shared_with_me', {
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+    });
+  });
+
+filesCmd
+  .command('upload')
+  .description('Upload a local file to OneDrive')
+  .requiredOption('--file <path>', 'Local file path to upload')
+  .option('--dest <path>', 'Destination path in OneDrive')
+  .action(async (opts) => {
+    await runCommand('onedrive_upload', {
+      localPath: opts.file,
+      remotePath: opts.dest,
     });
   });
 
@@ -717,7 +729,7 @@ chatsCmd
 // Planner commands
 const plannerCmd = program
   .command('planner')
-  .description('Planner plans, buckets, and tasks');
+  .description('Planner plans, buckets, tasks, and attachments');
 
 plannerCmd
   .command('plans')
@@ -872,6 +884,53 @@ plannerCmd
     await runCommand('planner_update_task_details', {
       taskId: opts.id,
       description: opts.description,
+    });
+  });
+
+plannerCmd
+  .command('attach')
+  .description('Add a link/attachment to a task')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .requiredOption('--url <url>', 'URL to attach (file URL or web link)')
+  .option('--alias <name>', 'Display name for the attachment')
+  .option(
+    '--type <type>',
+    'File type: Word, Excel, PowerPoint, OneNote, SharePoint, OneDrive, Pdf, Other'
+  )
+  .action(async (opts) => {
+    await runCommand('planner_add_reference', {
+      taskId: opts.id,
+      url: opts.url,
+      alias: opts.alias,
+      type: opts.type,
+    });
+  });
+
+plannerCmd
+  .command('detach')
+  .description('Remove an attachment/link from a task')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .requiredOption('--url <url>', 'URL to remove')
+  .action(async (opts) => {
+    await runCommand('planner_remove_reference', {
+      taskId: opts.id,
+      url: opts.url,
+    });
+  });
+
+plannerCmd
+  .command('upload')
+  .description('Upload a local file and attach it to a task')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .requiredOption('--file <path>', 'Local file path to upload')
+  .option('--dest <path>', 'Destination path in OneDrive (default: "Planner Attachments/<filename>")')
+  .option('--alias <name>', 'Display name for the attachment')
+  .action(async (opts) => {
+    await runCommand('planner_upload_attach', {
+      taskId: opts.id,
+      localPath: opts.file,
+      remotePath: opts.dest,
+      alias: opts.alias,
     });
   });
 
