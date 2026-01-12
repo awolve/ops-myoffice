@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { graphRequest, graphList } from '../utils/graph-client.js';
+import { basename } from 'path';
+import { readFile } from 'fs/promises';
+import { graphRequest, graphList, graphUpload, graphUploadLarge } from '../utils/graph-client.js';
 
 // ============================================================================
 // Types
@@ -64,6 +66,20 @@ interface GraphUser {
   displayName?: string;
   mail?: string;
   userPrincipalName?: string;
+}
+
+interface DriveItem {
+  id: string;
+  name: string;
+  size?: number;
+  webUrl: string;
+  file?: { mimeType: string };
+}
+
+interface Drive {
+  id: string;
+  name: string;
+  webUrl: string;
 }
 
 // ============================================================================
@@ -172,6 +188,32 @@ export const updatePlannerTaskDetailsSchema = z.object({
     .describe('Checklist items (replaces existing checklist)'),
 });
 
+// References (attachments)
+export const addPlannerTaskReferenceSchema = z.object({
+  taskId: z.string().describe('The task ID'),
+  url: z.string().url().describe('URL of the file or link to attach'),
+  alias: z.string().optional().describe('Display name for the reference'),
+  type: z
+    .enum(['Word', 'Excel', 'PowerPoint', 'OneNote', 'Project', 'Visio', 'Pdf', 'TeamsHostedApp', 'Other'])
+    .optional()
+    .describe('Type of reference (auto-detected if not provided)'),
+});
+
+export const removePlannerTaskReferenceSchema = z.object({
+  taskId: z.string().describe('The task ID'),
+  url: z.string().url().describe('URL of the reference to remove'),
+});
+
+export const uploadAndAttachSchema = z.object({
+  taskId: z.string().describe('The Planner task ID'),
+  localPath: z.string().describe('Local file path to upload'),
+  remotePath: z
+    .string()
+    .optional()
+    .describe('Destination path in OneDrive. If omitted, uploads to "Planner Attachments/<filename>"'),
+  alias: z.string().optional().describe('Display name for the attachment'),
+});
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -204,6 +246,33 @@ function progressToSemantic(percentComplete: number): string {
   if (percentComplete === 0) return 'notStarted';
   if (percentComplete === 100) return 'completed';
   return 'inProgress';
+}
+
+// Reference type detection from URL
+// Valid types per Microsoft API: Other, Word, Excel, PowerPoint, OneNote, Project, Visio, Pdf, TeamsHostedApp
+function detectReferenceType(url: string): string {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('.docx') || lowerUrl.includes('.doc')) return 'Word';
+  if (lowerUrl.includes('.xlsx') || lowerUrl.includes('.xls')) return 'Excel';
+  if (lowerUrl.includes('.pptx') || lowerUrl.includes('.ppt')) return 'PowerPoint';
+  if (lowerUrl.includes('.one') || lowerUrl.includes('onenote')) return 'OneNote';
+  if (lowerUrl.includes('.pdf')) return 'Pdf';
+  if (lowerUrl.includes('.mpp')) return 'Project';
+  if (lowerUrl.includes('.vsdx') || lowerUrl.includes('.vsd')) return 'Visio';
+  // All other files (images, SharePoint URLs, OneDrive URLs, etc.) use 'Other'
+  return 'Other';
+}
+
+// Encode URL for use as reference key (special encoding required by Planner)
+// Only encode characters that are problematic as JSON object keys, preserve URL structure
+function encodeReferenceUrl(url: string): string {
+  // Microsoft Planner requires periods and some special chars to be encoded
+  // but the URL must remain parseable (don't encode :, /, ?, &, =, etc.)
+  return url
+    .replace(/%/g, '%25') // Encode existing percent signs first
+    .replace(/\./g, '%2E') // Periods must be encoded
+    .replace(/#/g, '%23') // Hash/fragment
+    .replace(/\s/g, '%20'); // Spaces
 }
 
 // Get ETag for a resource
@@ -542,4 +611,148 @@ export async function updatePlannerTaskDetails(
   });
 
   return { success: true, message: 'Task details updated' };
+}
+
+// ============================================================================
+// References (Attachments)
+// ============================================================================
+
+export async function addPlannerTaskReference(
+  params: z.infer<typeof addPlannerTaskReferenceSchema>
+) {
+  const { taskId, url, alias, type } = params;
+
+  // Fetch ETag first
+  const etag = await getETag(`/planner/tasks/${taskId}/details`);
+
+  // Encode URL for use as object key
+  const encodedUrl = encodeReferenceUrl(url);
+
+  // Auto-detect type if not provided
+  const referenceType = type || detectReferenceType(url);
+
+  // Build reference object
+  const reference: Record<string, unknown> = {
+    '@odata.type': 'microsoft.graph.plannerExternalReference',
+    type: referenceType,
+    previewPriority: ' !',
+  };
+  if (alias) {
+    reference.alias = alias;
+  }
+
+  const body = {
+    references: {
+      [encodedUrl]: reference,
+    },
+  };
+
+  await graphRequest(`/planner/tasks/${taskId}/details`, {
+    method: 'PATCH',
+    body,
+    headers: { 'If-Match': etag },
+  });
+
+  return {
+    success: true,
+    message: 'Reference added to task',
+    url,
+    alias: alias || url,
+    type: referenceType,
+  };
+}
+
+export async function removePlannerTaskReference(
+  params: z.infer<typeof removePlannerTaskReferenceSchema>
+) {
+  const { taskId, url } = params;
+
+  // Fetch ETag first
+  const etag = await getETag(`/planner/tasks/${taskId}/details`);
+
+  // Encode URL for use as object key
+  const encodedUrl = encodeReferenceUrl(url);
+
+  // Set to null to remove
+  const body = {
+    references: {
+      [encodedUrl]: null,
+    },
+  };
+
+  await graphRequest(`/planner/tasks/${taskId}/details`, {
+    method: 'PATCH',
+    body,
+    headers: { 'If-Match': etag },
+  });
+
+  return {
+    success: true,
+    message: 'Reference removed from task',
+    url,
+  };
+}
+
+export async function uploadAndAttach(params: z.infer<typeof uploadAndAttachSchema>) {
+  const { taskId, localPath, remotePath, alias } = params;
+
+  const filename = basename(localPath);
+
+  // Step 1: Get task to find planId
+  const task = await graphRequest<PlannerTask>(`/planner/tasks/${taskId}`);
+
+  // Step 2: Get plan to find group (owner) and plan title
+  const plan = await graphRequest<PlannerPlan>(`/planner/plans/${task.planId}`);
+  const groupId = plan.owner;
+  const planTitle = plan.title.replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize for folder name
+
+  // Step 3: Get the group's default drive (SharePoint document library)
+  const drive = await graphRequest<Drive>(`/groups/${groupId}/drive`);
+
+  // Step 4: Read local file
+  const content = await readFile(localPath);
+
+  // Step 5: Determine destination path in SharePoint
+  const destPath = remotePath || `Planner Attachments/${planTitle}/${filename}`;
+
+  // Step 6: Upload to group's SharePoint
+  const MAX_SIMPLE_UPLOAD = 4 * 1024 * 1024;
+  let uploaded: DriveItem;
+
+  if (content.length <= MAX_SIMPLE_UPLOAD) {
+    uploaded = await graphUpload<DriveItem>(
+      `/drives/${drive.id}/root:/${destPath}:/content`,
+      content
+    );
+  } else {
+    uploaded = await graphUploadLarge<DriveItem>(
+      `/drives/${drive.id}/root:/${destPath}`,
+      content
+    );
+  }
+
+  // Step 7: Attach the uploaded file's URL to the task
+  const attachResult = await addPlannerTaskReference({
+    taskId,
+    url: uploaded.webUrl,
+    alias: alias || filename,
+  });
+
+  return {
+    success: true,
+    message: 'File uploaded to SharePoint and attached to task',
+    file: {
+      name: uploaded.name,
+      size: uploaded.size,
+      webUrl: uploaded.webUrl,
+    },
+    attachment: {
+      alias: alias || filename,
+      type: attachResult.type,
+    },
+    location: {
+      sharePointSite: drive.webUrl,
+      path: destPath,
+    },
+  };
 }
