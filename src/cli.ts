@@ -843,6 +843,7 @@ plannerCmd
   .option('--bucket-id <bucketId>', 'Move to bucket')
   .option('--assignments <emails...>', 'Assign to users (replaces existing)')
   .option('--due <datetime>', 'New due date')
+  .option('--clear-due', 'Remove due date')
   .option('--start <datetime>', 'New start date')
   .option('--priority <level>', 'New priority')
   .option('--progress <status>', 'New progress')
@@ -853,6 +854,7 @@ plannerCmd
       bucketId: opts.bucketId,
       assignments: opts.assignments,
       dueDateTime: opts.due,
+      clearDue: opts.clearDue,
       startDateTime: opts.start,
       priority: opts.priority,
       progress: opts.progress,

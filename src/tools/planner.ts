@@ -154,6 +154,7 @@ export const updatePlannerTaskSchema = z.object({
     .optional()
     .describe('Email addresses of users to assign (replaces existing)'),
   dueDateTime: z.string().optional().describe('New due date (ISO format)'),
+  clearDue: z.boolean().optional().describe('Clear the due date'),
   startDateTime: z.string().optional().describe('New start date (ISO format)'),
   priority: z
     .enum(['urgent', 'important', 'medium', 'low'])
@@ -489,7 +490,7 @@ export async function createPlannerTask(params: z.infer<typeof createPlannerTask
 }
 
 export async function updatePlannerTask(params: z.infer<typeof updatePlannerTaskSchema>) {
-  const { taskId, title, bucketId, assignments, dueDateTime, startDateTime, priority, progress } =
+  const { taskId, title, bucketId, assignments, dueDateTime, clearDue, startDateTime, priority, progress } =
     params;
 
   // Fetch ETag first
@@ -499,7 +500,11 @@ export async function updatePlannerTask(params: z.infer<typeof updatePlannerTask
 
   if (title) body.title = title;
   if (bucketId) body.bucketId = bucketId;
-  if (dueDateTime) body.dueDateTime = dueDateTime;
+  if (clearDue) {
+    body.dueDateTime = null;
+  } else if (dueDateTime) {
+    body.dueDateTime = dueDateTime;
+  }
   if (startDateTime) body.startDateTime = startDateTime;
   if (priority) body.priority = PRIORITY_MAP[priority];
   if (progress) body.percentComplete = PROGRESS_MAP[progress];
