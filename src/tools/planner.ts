@@ -486,10 +486,13 @@ export async function createPlannerTask(params: z.infer<typeof createPlannerTask
 
   // Resolve assignments to user IDs
   if (assignments && assignments.length > 0) {
-    const assignmentObj: Record<string, { '@odata.type': string }> = {};
+    const assignmentObj: Record<string, { '@odata.type': string; orderHint: string }> = {};
     for (const email of assignments) {
       const userId = await resolveUserId(email);
-      assignmentObj[userId] = { '@odata.type': '#microsoft.graph.plannerAssignment' };
+      assignmentObj[userId] = {
+        '@odata.type': '#microsoft.graph.plannerAssignment',
+        orderHint: ' !',
+      };
     }
     body.assignments = assignmentObj;
   }
@@ -528,10 +531,13 @@ export async function updatePlannerTask(params: z.infer<typeof updatePlannerTask
 
   // Resolve assignments to user IDs
   if (assignments) {
-    const assignmentObj: Record<string, { '@odata.type': string } | null> = {};
+    const assignmentObj: Record<string, { '@odata.type': string; orderHint: string } | null> = {};
     for (const email of assignments) {
       const userId = await resolveUserId(email);
-      assignmentObj[userId] = { '@odata.type': '#microsoft.graph.plannerAssignment' };
+      assignmentObj[userId] = {
+        '@odata.type': '#microsoft.graph.plannerAssignment',
+        orderHint: ' !',
+      };
     }
     body.assignments = assignmentObj;
   }
