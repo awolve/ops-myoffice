@@ -189,6 +189,23 @@ export const updatePlannerTaskDetailsSchema = z.object({
     .describe('Checklist items (replaces existing checklist)'),
 });
 
+// Checklist operations
+export const addChecklistItemSchema = z.object({
+  taskId: z.string().describe('The task ID'),
+  title: z.string().describe('Checklist item title'),
+  isChecked: z.boolean().optional().describe('Whether item is checked. Default: false'),
+});
+
+export const removeChecklistItemSchema = z.object({
+  taskId: z.string().describe('The task ID'),
+  itemId: z.string().describe('The checklist item ID'),
+});
+
+export const toggleChecklistItemSchema = z.object({
+  taskId: z.string().describe('The task ID'),
+  itemId: z.string().describe('The checklist item ID'),
+});
+
 // References (attachments)
 export const addPlannerTaskReferenceSchema = z.object({
   taskId: z.string().describe('The task ID'),
@@ -616,6 +633,113 @@ export async function updatePlannerTaskDetails(
   });
 
   return { success: true, message: 'Task details updated' };
+}
+
+// ============================================================================
+// Checklist Operations
+// ============================================================================
+
+export async function addChecklistItem(params: z.infer<typeof addChecklistItemSchema>) {
+  const { taskId, title, isChecked = false } = params;
+
+  // Fetch ETag first
+  const etag = await getETag(`/planner/tasks/${taskId}/details`);
+
+  // Generate a new item ID
+  const itemId = crypto.randomUUID();
+
+  const body = {
+    checklist: {
+      [itemId]: {
+        '@odata.type': 'microsoft.graph.plannerChecklistItem',
+        title,
+        isChecked,
+      },
+    },
+  };
+
+  await graphRequest(`/planner/tasks/${taskId}/details`, {
+    method: 'PATCH',
+    body,
+    headers: { 'If-Match': etag },
+  });
+
+  return {
+    success: true,
+    message: 'Checklist item added',
+    itemId,
+    title,
+    isChecked,
+  };
+}
+
+export async function removeChecklistItem(params: z.infer<typeof removeChecklistItemSchema>) {
+  const { taskId, itemId } = params;
+
+  // Fetch ETag first
+  const etag = await getETag(`/planner/tasks/${taskId}/details`);
+
+  // Set to null to remove
+  const body = {
+    checklist: {
+      [itemId]: null,
+    },
+  };
+
+  await graphRequest(`/planner/tasks/${taskId}/details`, {
+    method: 'PATCH',
+    body,
+    headers: { 'If-Match': etag },
+  });
+
+  return {
+    success: true,
+    message: 'Checklist item removed',
+    itemId,
+  };
+}
+
+export async function toggleChecklistItem(params: z.infer<typeof toggleChecklistItemSchema>) {
+  const { taskId, itemId } = params;
+
+  // Fetch current details to get the current state
+  const details = await graphRequest<PlannerTaskDetails>(`/planner/tasks/${taskId}/details`);
+  const etag = details['@odata.etag'];
+
+  if (!etag) {
+    throw new Error('Could not get ETag for task details');
+  }
+
+  const currentItem = details.checklist?.[itemId];
+  if (!currentItem) {
+    throw new Error(`Checklist item ${itemId} not found`);
+  }
+
+  const newCheckedState = !currentItem.isChecked;
+
+  const body = {
+    checklist: {
+      [itemId]: {
+        '@odata.type': 'microsoft.graph.plannerChecklistItem',
+        title: currentItem.title,
+        isChecked: newCheckedState,
+      },
+    },
+  };
+
+  await graphRequest(`/planner/tasks/${taskId}/details`, {
+    method: 'PATCH',
+    body,
+    headers: { 'If-Match': etag },
+  });
+
+  return {
+    success: true,
+    message: `Checklist item ${newCheckedState ? 'checked' : 'unchecked'}`,
+    itemId,
+    title: currentItem.title,
+    isChecked: newCheckedState,
+  };
 }
 
 // ============================================================================

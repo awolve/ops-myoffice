@@ -83,22 +83,32 @@ The `myoffice` CLI provides terminal access to all Microsoft 365 tools.
 ```bash
 npm install -g awolve-myoffice-cli
 
-# Add to ~/.zshrc (required for all commands)
-export M365_CLIENT_ID="your-azure-app-client-id"
+# First-time setup: provide your Azure AD client ID (saved for future use)
+myoffice login --client-id <your-azure-app-client-id>
 
-# Authenticate (opens browser for device code flow)
+# Subsequent logins (client ID remembered)
 myoffice login
 ```
 
-**Note:** `M365_CLIENT_ID` must be set for every command. Add it to your shell profile for convenience.
+**Configuration priority:**
+1. Environment variable `M365_CLIENT_ID` (if set)
+2. Stored config file `~/.config/myoffice-mcp/config.json`
+
+You can also set config without logging in:
+```bash
+myoffice config set --client-id <id> --tenant-id <id>
+myoffice config show
+```
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `myoffice login` | Authenticate with Microsoft 365 |
+| `myoffice login [--client-id <id>]` | Authenticate with Microsoft 365 |
 | `myoffice status` | Check authentication status |
 | `myoffice debug` | Show server and auth info |
+| `myoffice config show` | Show current configuration |
+| `myoffice config set --client-id <id>` | Save client ID to config file |
 
 **Mail:**
 - `myoffice mail list [--folder <name>] [--unread]` - List emails
@@ -146,6 +156,8 @@ myoffice login
 - `myoffice contacts list` - List contacts
 - `myoffice contacts search <query>` - Search contacts
 - `myoffice contacts get <id>` - Get contact details
+- `myoffice contacts create [--given-name <n>] [--surname <n>] [--email <e>] [--birthday <date>]` - Create contact
+- `myoffice contacts update --id <id> [--given-name <n>] [--email <e>] [--birthday <date>]` - Update contact
 
 **Teams:**
 - `myoffice teams list` - List teams
@@ -176,6 +188,9 @@ myoffice login
 - `myoffice planner attach --id <taskId> --url <url> [--alias <name>]` - Add link/attachment to task
 - `myoffice planner detach --id <taskId> --url <url>` - Remove attachment from task
 - `myoffice planner upload --id <taskId> --file <path> [--alias <name>]` - Upload file and attach to task
+- `myoffice planner checklist-add --id <taskId> --title <title> [--checked]` - Add checklist item
+- `myoffice planner checklist-remove --id <taskId> --item <itemId>` - Remove checklist item
+- `myoffice planner checklist-toggle --id <taskId> --item <itemId>` - Toggle checklist item
 
 ### Output Format
 

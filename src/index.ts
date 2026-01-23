@@ -498,6 +498,8 @@ const TOOLS = [
         businessPhone: { type: 'string', description: 'Business phone' },
         companyName: { type: 'string', description: 'Company name' },
         jobTitle: { type: 'string', description: 'Job title' },
+        notes: { type: 'string', description: 'Personal notes about the contact' },
+        birthday: { type: 'string', description: 'Birthday (ISO date, e.g., 1990-05-15)' },
       },
     },
   },
@@ -515,6 +517,8 @@ const TOOLS = [
         businessPhone: { type: 'string', description: 'Business phone' },
         companyName: { type: 'string', description: 'Company name' },
         jobTitle: { type: 'string', description: 'Job title' },
+        notes: { type: 'string', description: 'Personal notes about the contact' },
+        birthday: { type: 'string', description: 'Birthday (ISO date, e.g., 1990-05-15)' },
       },
       required: ['contactId'],
     },
@@ -836,6 +840,43 @@ const TOOLS = [
         alias: { type: 'string', description: 'Display name for the attachment' },
       },
       required: ['taskId', 'localPath'],
+    },
+  },
+  {
+    name: 'planner_checklist_add',
+    description: 'Add a checklist item to a Planner task',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        title: { type: 'string', description: 'Checklist item title' },
+        isChecked: { type: 'boolean', description: 'Whether item is checked. Default: false' },
+      },
+      required: ['taskId', 'title'],
+    },
+  },
+  {
+    name: 'planner_checklist_remove',
+    description: 'Remove a checklist item from a Planner task',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        itemId: { type: 'string', description: 'The checklist item ID' },
+      },
+      required: ['taskId', 'itemId'],
+    },
+  },
+  {
+    name: 'planner_checklist_toggle',
+    description: 'Toggle the checked state of a checklist item',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        itemId: { type: 'string', description: 'The checklist item ID' },
+      },
+      required: ['taskId', 'itemId'],
     },
   },
 

@@ -1,21 +1,24 @@
 import { PublicClientApplication, DeviceCodeRequest } from '@azure/msal-node';
-import { DEFAULT_CONFIG, MSAL_CACHE_FILE } from './config.js';
+import { getAuthConfig, MSAL_CACHE_FILE } from './config.js';
 import { FileCachePlugin } from './cache-plugin.js';
 
 const cachePlugin = new FileCachePlugin(MSAL_CACHE_FILE);
 
 export async function authenticateWithDeviceCode(): Promise<void> {
-  if (!DEFAULT_CONFIG.clientId) {
+  const config = getAuthConfig();
+
+  if (!config.clientId) {
     throw new Error(
-      'M365_CLIENT_ID environment variable is required.\n' +
-      'Create an Azure AD app registration with delegated permissions and set M365_CLIENT_ID.'
+      'No client ID configured.\n' +
+      'Run: myoffice login --client-id <your-azure-app-client-id>\n' +
+      'Or set M365_CLIENT_ID environment variable.'
     );
   }
 
   const pca = new PublicClientApplication({
     auth: {
-      clientId: DEFAULT_CONFIG.clientId,
-      authority: `https://login.microsoftonline.com/${DEFAULT_CONFIG.tenantId}`,
+      clientId: config.clientId,
+      authority: `https://login.microsoftonline.com/${config.tenantId}`,
     },
     cache: {
       cachePlugin,
@@ -23,7 +26,7 @@ export async function authenticateWithDeviceCode(): Promise<void> {
   });
 
   const deviceCodeRequest: DeviceCodeRequest = {
-    scopes: DEFAULT_CONFIG.scopes,
+    scopes: config.scopes,
     deviceCodeCallback: (response) => {
       console.log('\n' + '='.repeat(60));
       console.log('AUTHENTICATION REQUIRED');

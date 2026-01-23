@@ -1,20 +1,32 @@
 import { PublicClientApplication, SilentFlowRequest, AuthenticationResult, AccountInfo } from '@azure/msal-node';
-import { DEFAULT_CONFIG, MSAL_CACHE_FILE, getTokenCache } from './config.js';
+import { getAuthConfig, MSAL_CACHE_FILE, getTokenCache } from './config.js';
 import { FileCachePlugin } from './cache-plugin.js';
 
 let msalInstance: PublicClientApplication | null = null;
+let msalClientId: string | null = null;
 const cachePlugin = new FileCachePlugin(MSAL_CACHE_FILE);
 
 function getMsalInstance(): PublicClientApplication {
+  const config = getAuthConfig();
+
+  // Recreate instance if client ID changed
+  if (msalInstance && msalClientId !== config.clientId) {
+    msalInstance = null;
+  }
+
   if (!msalInstance) {
-    if (!DEFAULT_CONFIG.clientId) {
-      throw new Error('M365_CLIENT_ID environment variable is required');
+    if (!config.clientId) {
+      throw new Error(
+        'No client ID configured. Run: myoffice login --client-id <your-azure-app-client-id>\n' +
+        'Or set M365_CLIENT_ID environment variable.'
+      );
     }
 
+    msalClientId = config.clientId;
     msalInstance = new PublicClientApplication({
       auth: {
-        clientId: DEFAULT_CONFIG.clientId,
-        authority: `https://login.microsoftonline.com/${DEFAULT_CONFIG.tenantId}`,
+        clientId: config.clientId,
+        authority: `https://login.microsoftonline.com/${config.tenantId}`,
       },
       cache: {
         cachePlugin,
@@ -48,8 +60,9 @@ export async function getAccessToken(): Promise<string> {
   // Try silent token acquisition (MSAL handles refresh automatically)
   console.error('[Auth] Acquiring token silently...');
   try {
+    const config = getAuthConfig();
     const silentRequest: SilentFlowRequest = {
-      scopes: DEFAULT_CONFIG.scopes,
+      scopes: config.scopes,
       account: account,
     };
 

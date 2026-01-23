@@ -5,6 +5,7 @@ import { getVersion } from './utils/version.js';
 import { executeCommand } from './core/handler.js';
 import { isAuthenticated, authenticateWithDeviceCode } from './auth/index.js';
 import { formatOutput } from './cli/formatter.js';
+import { saveStoredConfig, getStoredConfig, DEFAULT_CONFIG } from './auth/config.js';
 
 const program = new Command();
 
@@ -64,8 +65,38 @@ program
 program
   .command('login')
   .description('Authenticate with Microsoft 365')
-  .action(async () => {
+  .option('--client-id <id>', 'Azure AD client ID (saved for future use)')
+  .option('--tenant-id <id>', 'Azure AD tenant ID (default: common)')
+  .action(async (opts) => {
     try {
+      // Save client-id and tenant-id if provided
+      if (opts.clientId || opts.tenantId) {
+        const configToSave: { clientId?: string; tenantId?: string } = {};
+        if (opts.clientId) configToSave.clientId = opts.clientId;
+        if (opts.tenantId) configToSave.tenantId = opts.tenantId;
+        saveStoredConfig(configToSave);
+        console.log('Configuration saved.');
+
+        // Reload config for this session
+        if (opts.clientId) {
+          // Set environment variable for this process so auth picks it up
+          process.env.M365_CLIENT_ID = opts.clientId;
+        }
+        if (opts.tenantId) {
+          process.env.M365_TENANT_ID = opts.tenantId;
+        }
+      }
+
+      // Check if we have a client ID
+      const storedConfig = getStoredConfig();
+      const clientId = process.env.M365_CLIENT_ID || storedConfig.clientId;
+      if (!clientId) {
+        outputError(
+          'No client ID configured. Run: myoffice login --client-id <your-azure-app-client-id>',
+          'CONFIG_REQUIRED'
+        );
+      }
+
       console.log('Starting authentication...');
       console.log('');
       await authenticateWithDeviceCode();
@@ -103,6 +134,51 @@ program
     } else {
       outputError(result.error || 'Failed to get debug info', result.code);
     }
+  });
+
+// Config command
+const configCmd = program
+  .command('config')
+  .description('View or set configuration');
+
+configCmd
+  .command('show')
+  .description('Show current configuration')
+  .action(() => {
+    const stored = getStoredConfig();
+    const envClientId = process.env.M365_CLIENT_ID;
+    const envTenantId = process.env.M365_TENANT_ID;
+
+    const config = {
+      clientId: {
+        value: envClientId || stored.clientId || null,
+        source: envClientId ? 'environment' : stored.clientId ? 'config file' : 'not set',
+      },
+      tenantId: {
+        value: envTenantId || stored.tenantId || 'common',
+        source: envTenantId ? 'environment' : stored.tenantId ? 'config file' : 'default',
+      },
+      configFile: '~/.config/myoffice-mcp/config.json',
+    };
+    output(config);
+  });
+
+configCmd
+  .command('set')
+  .description('Set configuration values')
+  .option('--client-id <id>', 'Azure AD client ID')
+  .option('--tenant-id <id>', 'Azure AD tenant ID')
+  .action((opts) => {
+    if (!opts.clientId && !opts.tenantId) {
+      outputError('Specify --client-id and/or --tenant-id to set', 'MISSING_ARGS');
+    }
+    const configToSave: { clientId?: string; tenantId?: string } = {};
+    if (opts.clientId) configToSave.clientId = opts.clientId;
+    if (opts.tenantId) configToSave.tenantId = opts.tenantId;
+    saveStoredConfig(configToSave);
+    console.log('Configuration saved to ~/.config/myoffice-mcp/config.json');
+    if (opts.clientId) console.log(`  Client ID: ${opts.clientId.substring(0, 8)}...`);
+    if (opts.tenantId) console.log(`  Tenant ID: ${opts.tenantId}`);
   });
 
 // Mail commands
@@ -585,6 +661,7 @@ contactsCmd
   .option('--company <name>', 'Company name')
   .option('--job-title <title>', 'Job title')
   .option('--notes <text>', 'Personal notes about the contact')
+  .option('--birthday <date>', 'Birthday (ISO date, e.g., 1990-05-15)')
   .action(async (opts) => {
     await runCommand('contacts_create', {
       givenName: opts.givenName,
@@ -595,6 +672,7 @@ contactsCmd
       companyName: opts.company,
       jobTitle: opts.jobTitle,
       notes: opts.notes,
+      birthday: opts.birthday,
     });
   });
 
@@ -610,6 +688,7 @@ contactsCmd
   .option('--company <name>', 'Company name')
   .option('--job-title <title>', 'Job title')
   .option('--notes <text>', 'Personal notes about the contact')
+  .option('--birthday <date>', 'Birthday (ISO date, e.g., 1990-05-15)')
   .action(async (opts) => {
     await runCommand('contacts_update', {
       contactId: opts.id,
@@ -621,6 +700,7 @@ contactsCmd
       companyName: opts.company,
       jobTitle: opts.jobTitle,
       notes: opts.notes,
+      birthday: opts.birthday,
     });
   });
 
@@ -933,6 +1013,44 @@ plannerCmd
       localPath: opts.file,
       remotePath: opts.dest,
       alias: opts.alias,
+    });
+  });
+
+plannerCmd
+  .command('checklist-add')
+  .description('Add a checklist item to a task')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .requiredOption('--title <title>', 'Checklist item title')
+  .option('--checked', 'Mark item as checked')
+  .action(async (opts) => {
+    await runCommand('planner_checklist_add', {
+      taskId: opts.id,
+      title: opts.title,
+      isChecked: opts.checked || false,
+    });
+  });
+
+plannerCmd
+  .command('checklist-remove')
+  .description('Remove a checklist item from a task')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .requiredOption('--item <itemId>', 'Checklist item ID')
+  .action(async (opts) => {
+    await runCommand('planner_checklist_remove', {
+      taskId: opts.id,
+      itemId: opts.item,
+    });
+  });
+
+plannerCmd
+  .command('checklist-toggle')
+  .description('Toggle the checked state of a checklist item')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .requiredOption('--item <itemId>', 'Checklist item ID')
+  .action(async (opts) => {
+    await runCommand('planner_checklist_toggle', {
+      taskId: opts.id,
+      itemId: opts.item,
     });
   });
 

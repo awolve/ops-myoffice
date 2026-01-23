@@ -1,4 +1,4 @@
-import { getCurrentUser, isAuthenticated } from '../auth/index.js';
+import { getCurrentUser, isAuthenticated, getAuthConfig, getStoredConfig } from '../auth/index.js';
 import { getVersion } from '../utils/version.js';
 import { graphRequest } from '../utils/graph-client.js';
 import * as mail from '../tools/mail.js';
@@ -228,6 +228,15 @@ export async function executeCommand(
       case 'planner_upload_attach':
         result = await planner.uploadAndAttach(planner.uploadAndAttachSchema.parse(args));
         break;
+      case 'planner_checklist_add':
+        result = await planner.addChecklistItem(planner.addChecklistItemSchema.parse(args));
+        break;
+      case 'planner_checklist_remove':
+        result = await planner.removeChecklistItem(planner.removeChecklistItemSchema.parse(args));
+        break;
+      case 'planner_checklist_toggle':
+        result = await planner.toggleChecklistItem(planner.toggleChecklistItemSchema.parse(args));
+        break;
 
       // Auth
       case 'auth_status':
@@ -274,6 +283,9 @@ export async function executeCommand(
           };
         }
 
+        const storedConfig = getStoredConfig();
+        const authConfig = getAuthConfig();
+
         result = {
           server: {
             name: 'myoffice-mcp',
@@ -284,14 +296,31 @@ export async function executeCommand(
             startedAt: SERVER_START_TIME.toISOString(),
             uptime: uptimeStr,
           },
-          environment: {
-            M365_CLIENT_ID: (() => {
-              const val = process.env.M365_CLIENT_ID;
-              if (!val) return 'NOT SET';
-              if (val.startsWith('${') || val.includes('$M365')) return `UNRESOLVED PLACEHOLDER: ${val}`;
-              return `SET (${val.substring(0, 8)}...)`;
+          config: {
+            clientId: (() => {
+              const envVal = process.env.M365_CLIENT_ID;
+              const storedVal = storedConfig.clientId;
+              if (envVal) {
+                if (envVal.startsWith('${') || envVal.includes('$M365')) {
+                  return `UNRESOLVED: ${envVal}`;
+                }
+                return `${envVal.substring(0, 8)}... (from env)`;
+              }
+              if (storedVal) {
+                return `${storedVal.substring(0, 8)}... (from config file)`;
+              }
+              return 'NOT SET - run: myoffice login --client-id <id>';
             })(),
-            M365_TENANT_ID: process.env.M365_TENANT_ID || 'NOT SET (using "common")',
+            tenantId: (() => {
+              if (process.env.M365_TENANT_ID) {
+                return `${process.env.M365_TENANT_ID} (from env)`;
+              }
+              if (storedConfig.tenantId) {
+                return `${storedConfig.tenantId} (from config file)`;
+              }
+              return 'common (default)';
+            })(),
+            configFile: '~/.config/myoffice-mcp/config.json',
           },
           auth: {
             authenticated: await isAuthenticated(),
