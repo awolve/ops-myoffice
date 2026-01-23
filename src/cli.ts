@@ -922,6 +922,7 @@ plannerCmd
   .option('--title <title>', 'New title')
   .option('--bucket-id <bucketId>', 'Move to bucket')
   .option('--assignments <emails...>', 'Assign to users (replaces existing)')
+  .option('--clear-assignments', 'Remove all assignments')
   .option('--due <datetime>', 'New due date')
   .option('--clear-due', 'Remove due date')
   .option('--start <datetime>', 'New start date')
@@ -933,6 +934,7 @@ plannerCmd
       title: opts.title,
       bucketId: opts.bucketId,
       assignments: opts.assignments,
+      clearAssignments: opts.clearAssignments,
       dueDateTime: opts.due,
       clearDue: opts.clearDue,
       startDateTime: opts.start,

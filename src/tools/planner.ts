@@ -153,6 +153,7 @@ export const updatePlannerTaskSchema = z.object({
     .array(z.string())
     .optional()
     .describe('Email addresses of users to assign (replaces existing)'),
+  clearAssignments: z.boolean().optional().describe('Remove all assignments'),
   dueDateTime: z.string().optional().describe('New due date (ISO format)'),
   clearDue: z.boolean().optional().describe('Clear the due date'),
   startDateTime: z.string().optional().describe('New start date (ISO format)'),
@@ -510,11 +511,12 @@ export async function createPlannerTask(params: z.infer<typeof createPlannerTask
 }
 
 export async function updatePlannerTask(params: z.infer<typeof updatePlannerTaskSchema>) {
-  const { taskId, title, bucketId, assignments, dueDateTime, clearDue, startDateTime, priority, progress } =
+  const { taskId, title, bucketId, assignments, clearAssignments, dueDateTime, clearDue, startDateTime, priority, progress } =
     params;
 
-  // Fetch ETag first
-  const etag = await getETag(`/planner/tasks/${taskId}`);
+  // Fetch task to get ETag and current assignments (if clearing)
+  const currentTask = await graphRequest<PlannerTask>(`/planner/tasks/${taskId}`);
+  const etag = currentTask['@odata.etag'] as string;
 
   const body: Record<string, unknown> = {};
 
@@ -529,8 +531,19 @@ export async function updatePlannerTask(params: z.infer<typeof updatePlannerTask
   if (priority) body.priority = PRIORITY_MAP[priority];
   if (progress) body.percentComplete = PROGRESS_MAP[progress];
 
-  // Resolve assignments to user IDs
-  if (assignments) {
+  // Handle assignments
+  if (clearAssignments) {
+    // Set all current assignments to null to remove them
+    const assignmentObj: Record<string, null> = {};
+    const currentAssignments = currentTask.assignments || {};
+    for (const userId of Object.keys(currentAssignments)) {
+      assignmentObj[userId] = null;
+    }
+    if (Object.keys(assignmentObj).length > 0) {
+      body.assignments = assignmentObj;
+    }
+  } else if (assignments) {
+    // Resolve assignments to user IDs
     const assignmentObj: Record<string, { '@odata.type': string; orderHint: string } | null> = {};
     for (const email of assignments) {
       const userId = await resolveUserId(email);
