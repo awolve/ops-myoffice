@@ -1,6 +1,6 @@
 {
-  "name": "awolve-myoffice-cli",
-  "version": "1.5.3",
+  "name": "@awolve/myoffice",
+  "version": "1.6.0",
   "description": "CLI and MCP server for personal Microsoft 365 access - email, calendar, tasks, OneDrive, Teams, Planner",
   "type": "module",
   "main": "dist/index.js",
@@ -8,10 +8,13 @@
     "myoffice-mcp": "dist/index.js",
     "myoffice": "dist/cli.js"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
-    "postinstall": "echo '\n✅ awolve-myoffice-cli installed!\n\nIf \"myoffice\" command is not found, add npm global bin to PATH:\n  export PATH=\"$(npm bin -g):$PATH\"\n\nOr use npx:\n  npx awolve-myoffice-cli --help\n'",
+    "postinstall": "echo '\n✅ @awolve/myoffice installed!\n\nRun: myoffice --help\nOr:  npx @awolve/myoffice --help\n'",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "login": "tsx src/cli.ts login"
