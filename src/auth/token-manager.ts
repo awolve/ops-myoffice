@@ -58,7 +58,6 @@ export async function getAccessToken(): Promise<string> {
   const account = accounts[0];
 
   // Try silent token acquisition (MSAL handles refresh automatically)
-  console.error('[Auth] Acquiring token silently...');
   try {
     const config = getAuthConfig();
     const silentRequest: SilentFlowRequest = {
@@ -67,8 +66,6 @@ export async function getAccessToken(): Promise<string> {
     };
 
     const result: AuthenticationResult = await pca.acquireTokenSilent(silentRequest);
-
-    console.error('[Auth] Token acquired successfully');
     return result.accessToken;
   } catch (error) {
     // Silent refresh failed - log the actual error
