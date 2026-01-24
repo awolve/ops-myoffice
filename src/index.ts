@@ -881,6 +881,29 @@ const TOOLS = [
       required: ['taskId', 'itemId'],
     },
   },
+  {
+    name: 'planner_list_comments',
+    description: 'List comments on a Planner task',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+      },
+      required: ['taskId'],
+    },
+  },
+  {
+    name: 'planner_add_comment',
+    description: 'Add a comment to a Planner task',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        taskId: { type: 'string', description: 'The task ID' },
+        comment: { type: 'string', description: 'The comment text' },
+      },
+      required: ['taskId', 'comment'],
+    },
+  },
 
   // Auth
   {

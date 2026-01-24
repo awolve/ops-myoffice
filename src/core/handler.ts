@@ -237,6 +237,12 @@ export async function executeCommand(
       case 'planner_checklist_toggle':
         result = await planner.toggleChecklistItem(planner.toggleChecklistItemSchema.parse(args));
         break;
+      case 'planner_list_comments':
+        result = await planner.listComments(planner.listCommentsSchema.parse(args));
+        break;
+      case 'planner_add_comment':
+        result = await planner.addComment(planner.addCommentSchema.parse(args));
+        break;
 
       // Auth
       case 'auth_status':

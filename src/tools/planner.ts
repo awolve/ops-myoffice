@@ -37,7 +37,15 @@ interface PlannerTask {
   assignments: Record<string, { assignedBy?: object; assignedDateTime?: string }>;
   createdDateTime: string;
   orderHint: string;
+  conversationThreadId?: string;
   '@odata.etag'?: string;
+}
+
+interface ConversationPost {
+  id: string;
+  body: { content: string; contentType: string };
+  from: { emailAddress: { name: string; address: string } };
+  receivedDateTime: string;
 }
 
 interface PlannerTaskDetails {
@@ -205,6 +213,16 @@ export const removeChecklistItemSchema = z.object({
 export const toggleChecklistItemSchema = z.object({
   taskId: z.string().describe('The task ID'),
   itemId: z.string().describe('The checklist item ID'),
+});
+
+// Comments
+export const listCommentsSchema = z.object({
+  taskId: z.string().describe('The task ID'),
+});
+
+export const addCommentSchema = z.object({
+  taskId: z.string().describe('The task ID'),
+  comment: z.string().describe('The comment text'),
 });
 
 // References (attachments)
@@ -758,6 +776,106 @@ export async function toggleChecklistItem(params: z.infer<typeof toggleChecklist
     itemId,
     title: currentItem.title,
     isChecked: newCheckedState,
+  };
+}
+
+// ============================================================================
+// Comments
+// ============================================================================
+
+export async function listComments(params: z.infer<typeof listCommentsSchema>) {
+  const { taskId } = params;
+
+  // Get the task to find conversationThreadId and planId
+  const task = await graphRequest<PlannerTask>(`/planner/tasks/${taskId}`);
+
+  if (!task.conversationThreadId) {
+    return { comments: [], message: 'No comments on this task' };
+  }
+
+  // Get the plan to find the group ID
+  const plan = await graphRequest<PlannerPlan>(`/planner/plans/${task.planId}`);
+  const groupId = plan.owner;
+
+  // Get the conversation thread posts (comments)
+  const posts = await graphList<ConversationPost>(
+    `/groups/${groupId}/threads/${task.conversationThreadId}/posts`
+  );
+
+  return {
+    comments: posts.map((post) => ({
+      id: post.id,
+      content: post.body.content,
+      contentType: post.body.contentType,
+      from: post.from.emailAddress.name || post.from.emailAddress.address,
+      date: post.receivedDateTime,
+    })),
+  };
+}
+
+export async function addComment(params: z.infer<typeof addCommentSchema>) {
+  const { taskId, comment } = params;
+
+  // Get the task to find conversationThreadId and planId
+  const task = await graphRequest<PlannerTask>(`/planner/tasks/${taskId}`);
+  const etag = task['@odata.etag'] as string;
+
+  // Get the plan to find the group ID
+  const plan = await graphRequest<PlannerPlan>(`/planner/plans/${task.planId}`);
+  const groupId = plan.owner;
+
+  if (!task.conversationThreadId) {
+    // No conversation thread yet - create one and link it to the task
+    const newThread = await graphRequest<{ id: string }>(
+      `/groups/${groupId}/threads`,
+      {
+        method: 'POST',
+        body: {
+          topic: task.title,
+          posts: [
+            {
+              body: {
+                contentType: 'text',
+                content: comment,
+              },
+            },
+          ],
+        },
+      }
+    );
+
+    // Link the new thread to the task
+    await graphRequest(`/planner/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: { conversationThreadId: newThread.id },
+      headers: { 'If-Match': etag },
+    });
+
+    return {
+      success: true,
+      message: 'Comment added (conversation created)',
+    };
+  }
+
+  // Reply to existing thread
+  await graphRequest(
+    `/groups/${groupId}/threads/${task.conversationThreadId}/reply`,
+    {
+      method: 'POST',
+      body: {
+        post: {
+          body: {
+            contentType: 'text',
+            content: comment,
+          },
+        },
+      },
+    }
+  );
+
+  return {
+    success: true,
+    message: 'Comment added',
   };
 }
 

@@ -104,7 +104,7 @@ const SCOPES = [
   'https://graph.microsoft.com/ChatMessage.Send',
   // Planner
   'https://graph.microsoft.com/Tasks.ReadWrite',
-  'https://graph.microsoft.com/Group.Read.All',
+  'https://graph.microsoft.com/Group.ReadWrite.All',
   'https://graph.microsoft.com/User.ReadBasic.All',
   'offline_access',
 ];

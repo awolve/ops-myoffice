@@ -1056,5 +1056,27 @@ plannerCmd
     });
   });
 
+plannerCmd
+  .command('comments')
+  .description('List comments on a task')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .action(async (opts) => {
+    await runCommand('planner_list_comments', {
+      taskId: opts.id,
+    });
+  });
+
+plannerCmd
+  .command('comment')
+  .description('Add a comment to a task')
+  .requiredOption('--id <taskId>', 'Task ID')
+  .requiredOption('--text <comment>', 'Comment text')
+  .action(async (opts) => {
+    await runCommand('planner_add_comment', {
+      taskId: opts.id,
+      comment: opts.text,
+    });
+  });
+
 // Parse and execute
 program.parse();
