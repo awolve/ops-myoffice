@@ -1,5 +1,5 @@
 import { ICachePlugin, TokenCacheContext } from '@azure/msal-node';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs';
 import { dirname } from 'path';
 
 /**
@@ -8,6 +8,7 @@ import { dirname } from 'path';
  */
 export class FileCachePlugin implements ICachePlugin {
   private cachePath: string;
+  private writeLock: Promise<void> = Promise.resolve();
 
   constructor(cachePath: string) {
     this.cachePath = cachePath;
@@ -32,19 +33,39 @@ export class FileCachePlugin implements ICachePlugin {
 
   /**
    * Called after MSAL accesses the cache.
-   * If the cache changed, persist it to disk.
+   * If the cache changed, persist it to disk using atomic write.
    */
   async afterCacheAccess(cacheContext: TokenCacheContext): Promise<void> {
     if (cacheContext.cacheHasChanged) {
+      // Queue writes to prevent concurrent file operations
+      this.writeLock = this.writeLock.then(() => this.writeCache(cacheContext));
+      await this.writeLock;
+    }
+  }
+
+  private async writeCache(cacheContext: TokenCacheContext): Promise<void> {
+    try {
+      const dir = dirname(this.cachePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      const serialized = cacheContext.tokenCache.serialize();
+
+      // Atomic write: write to temp file, then rename
+      // This prevents corruption from concurrent writes
+      const tempPath = `${this.cachePath}.tmp.${process.pid}`;
+      writeFileSync(tempPath, serialized, { mode: 0o600 });
+      renameSync(tempPath, this.cachePath);
+    } catch (error) {
+      console.error('[Cache] Failed to save cache:', error instanceof Error ? error.message : error);
+      // Clean up temp file if it exists
       try {
-        const dir = dirname(this.cachePath);
-        if (!existsSync(dir)) {
-          mkdirSync(dir, { recursive: true });
+        const tempPath = `${this.cachePath}.tmp.${process.pid}`;
+        if (existsSync(tempPath)) {
+          unlinkSync(tempPath);
         }
-        const serialized = cacheContext.tokenCache.serialize();
-        writeFileSync(this.cachePath, serialized, { mode: 0o600 });
-      } catch (error) {
-        console.error('[Cache] Failed to save cache:', error instanceof Error ? error.message : error);
+      } catch {
+        // Ignore cleanup errors
       }
     }
   }
