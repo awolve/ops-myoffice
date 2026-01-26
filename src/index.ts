@@ -136,6 +136,14 @@ const TOOLS = [
 
   // Calendar
   {
+    name: 'calendar_calendars',
+    description: 'List all available calendars',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+    },
+  },
+  {
     name: 'calendar_list',
     description: 'List calendar events within a date range',
     inputSchema: {
@@ -144,6 +152,7 @@ const TOOLS = [
         startDate: { type: 'string', description: 'Start date (ISO). Default: today' },
         endDate: { type: 'string', description: 'End date (ISO). Default: +7 days' },
         maxItems: { type: 'number', description: 'Max events. Default: 50' },
+        calendarId: { type: 'string', description: 'Calendar ID. Default: primary' },
       },
     },
   },
@@ -172,6 +181,7 @@ const TOOLS = [
         body: { type: 'string', description: 'Event description' },
         attendees: { type: 'array', items: { type: 'string' }, description: 'Attendee emails' },
         isOnlineMeeting: { type: 'boolean', description: 'Create Teams meeting' },
+        calendarId: { type: 'string', description: 'Calendar ID. Default: primary' },
       },
       required: ['subject', 'start', 'end'],
     },

@@ -52,6 +52,9 @@ export async function executeCommand(
         break;
 
       // Calendar
+      case 'calendar_calendars':
+        result = await calendar.listCalendars();
+        break;
       case 'calendar_list':
         result = await calendar.listEvents(calendar.listEventsSchema.parse(args));
         break;

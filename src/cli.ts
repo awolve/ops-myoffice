@@ -286,16 +286,25 @@ const calendarCmd = program
   .description('Calendar events (list, get, create, update, delete)');
 
 calendarCmd
+  .command('calendars')
+  .description('List all calendars')
+  .action(async () => {
+    await runCommand('calendar_calendars', {});
+  });
+
+calendarCmd
   .command('list')
   .description('List calendar events')
   .option('--start <date>', 'Start date (ISO format)')
   .option('--end <date>', 'End date (ISO format)')
   .option('--limit <n>', 'Maximum events', '50')
+  .option('--calendar-id <id>', 'Calendar ID (default: primary)')
   .action(async (opts) => {
     await runCommand('calendar_list', {
       startDate: opts.start,
       endDate: opts.end,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+      calendarId: opts.calendarId,
     });
   });
 
@@ -318,6 +327,7 @@ calendarCmd
   .option('--body <body>', 'Event description')
   .option('--attendees <emails...>', 'Attendee emails')
   .option('--online', 'Create Teams meeting')
+  .option('--calendar-id <id>', 'Calendar ID (default: primary)')
   .action(async (opts) => {
     await runCommand('calendar_create', {
       subject: opts.subject,
@@ -328,6 +338,7 @@ calendarCmd
       body: opts.body,
       attendees: opts.attendees,
       isOnlineMeeting: opts.online || false,
+      calendarId: opts.calendarId,
     });
   });
 
