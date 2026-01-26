@@ -537,6 +537,18 @@ filesCmd
     });
   });
 
+filesCmd
+  .command('download')
+  .description('Download a file from OneDrive')
+  .requiredOption('--path <path>', 'File path in OneDrive')
+  .requiredOption('--output <path>', 'Local file path to save the file')
+  .action(async (opts) => {
+    await runCommand('onedrive_download', {
+      path: opts.path,
+      outputPath: opts.output,
+    });
+  });
+
 // SharePoint commands
 const sharepointCmd = program
   .command('sharepoint')
@@ -623,6 +635,32 @@ sharepointCmd
       driveId: opts.driveId,
       query: opts.query,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+    });
+  });
+
+sharepointCmd
+  .command('download')
+  .description('Download a file from SharePoint')
+  .requiredOption('--url <url>', 'SharePoint URL to download')
+  .requiredOption('--output <path>', 'Local file path to save the file')
+  .action(async (opts) => {
+    await runCommand('sharepoint_download_url', {
+      url: opts.url,
+      outputPath: opts.output,
+    });
+  });
+
+sharepointCmd
+  .command('download-file')
+  .description('Download a file from SharePoint by drive ID and path')
+  .requiredOption('--drive-id <driveId>', 'Drive ID')
+  .requiredOption('--path <path>', 'File path in the drive')
+  .requiredOption('--output <outputPath>', 'Local file path to save the file')
+  .action(async (opts) => {
+    await runCommand('sharepoint_download_file', {
+      driveId: opts.driveId,
+      path: opts.path,
+      outputPath: opts.output,
     });
   });
 

@@ -277,3 +277,46 @@ export async function uploadFile(params: z.infer<typeof uploadFileSchema>) {
     mimeType: uploaded.file?.mimeType,
   };
 }
+
+// Download schema and function
+
+export const downloadFileSchema = z.object({
+  path: z.string().describe('File path in OneDrive (e.g., "Documents/report.pdf")'),
+  outputPath: z.string().describe('Local file path to save the downloaded file'),
+});
+
+/**
+ * Download a file from OneDrive to a local path.
+ */
+export async function downloadFile(params: z.infer<typeof downloadFileSchema>) {
+  const { path, outputPath } = params;
+  const { writeFile } = await import('fs/promises');
+
+  // Get the file metadata with download URL
+  const item = await graphRequest<DriveItem>(
+    `/me/drive/root:/${path}?$select=id,name,size,file,@microsoft.graph.downloadUrl`
+  );
+
+  const downloadUrl = item['@microsoft.graph.downloadUrl'];
+  if (!downloadUrl) {
+    throw new Error('Could not get download URL for file');
+  }
+
+  // Download the file
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${response.statusText}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await writeFile(outputPath, buffer);
+
+  return {
+    success: true,
+    name: item.name,
+    size: item.size,
+    mimeType: item.file?.mimeType,
+    outputPath,
+    bytesWritten: buffer.length,
+  };
+}

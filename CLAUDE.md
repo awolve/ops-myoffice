@@ -142,6 +142,7 @@ myoffice config show
 - `myoffice files mkdir <name> [--parent <path>]` - Create folder
 - `myoffice files shared` - List files shared with me
 - `myoffice files upload --file <path> [--dest <path>]` - Upload local file (any size)
+- `myoffice files download --path <path> --output <path>` - Download file to local path
 
 **SharePoint:**
 - `myoffice sharepoint sites [--search <query>]` - List sites
@@ -151,6 +152,8 @@ myoffice config show
 - `myoffice sharepoint file <driveId> <path>` - Get file metadata
 - `myoffice sharepoint read <driveId> <path>` - Read file content
 - `myoffice sharepoint search <driveId> <query>` - Search files
+- `myoffice sharepoint download --url <url> --output <path>` - Download file from SharePoint URL
+- `myoffice sharepoint download-file --drive-id <id> --path <path> --output <path>` - Download file by drive ID
 
 **Contacts:**
 - `myoffice contacts list` - List contacts

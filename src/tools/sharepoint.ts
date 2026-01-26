@@ -231,3 +231,143 @@ export async function searchDriveFiles(params: z.infer<typeof searchDriveFilesSc
     webUrl: item.webUrl,
   }));
 }
+
+// Download schemas and functions
+
+export const downloadFromUrlSchema = z.object({
+  url: z.string().describe('SharePoint URL to download (e.g., https://tenant.sharepoint.com/sites/sitename/path/to/file.jpg)'),
+  outputPath: z.string().describe('Local file path to save the downloaded file'),
+});
+
+export const downloadDriveFileSchema = z.object({
+  driveId: z.string().describe('Drive ID'),
+  path: z.string().describe('File path within the drive'),
+  outputPath: z.string().describe('Local file path to save the downloaded file'),
+});
+
+/**
+ * Parse a SharePoint URL to extract site hostname, site path, and file path.
+ * Supports:
+ * - https://tenant.sharepoint.com/sites/sitename/Shared Documents/path/file.jpg
+ * - https://tenant-my.sharepoint.com/personal/user_domain_com/Documents/file.pdf
+ */
+function parseSharePointUrl(url: string): { siteId: string; filePath: string } | null {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname;
+    const pathParts = decodeURIComponent(parsed.pathname).split('/').filter(Boolean);
+
+    // Handle /sites/sitename/... pattern
+    if (pathParts[0] === 'sites' && pathParts.length >= 2) {
+      const siteName = pathParts[1];
+      // The document library name is usually the 3rd part (e.g., "Shared Documents" or "Delade dokument")
+      // Everything after that is the file path within the library
+      const siteId = `${hostname}:/sites/${siteName}`;
+
+      // The file path is everything after the site name
+      // Skip the document library name for the site ID lookup, but include it for file path
+      const filePath = '/' + pathParts.slice(2).join('/');
+
+      return { siteId, filePath };
+    }
+
+    // Handle /personal/user_domain_com/... pattern (OneDrive for Business)
+    if (pathParts[0] === 'personal' && pathParts.length >= 2) {
+      const personalFolder = pathParts[1];
+      const siteId = `${hostname}:/personal/${personalFolder}`;
+      const filePath = '/' + pathParts.slice(2).join('/');
+
+      return { siteId, filePath };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Download a file from a SharePoint URL to a local path.
+ */
+export async function downloadFromUrl(params: z.infer<typeof downloadFromUrlSchema>) {
+  const { url, outputPath } = params;
+  const { writeFile } = await import('fs/promises');
+
+  const parsed = parseSharePointUrl(url);
+  if (!parsed) {
+    throw new Error('Invalid SharePoint URL. Expected format: https://tenant.sharepoint.com/sites/sitename/path/to/file');
+  }
+
+  const { siteId, filePath } = parsed;
+
+  // First, get the site to find its drive
+  const site = await graphRequest<{ id: string }>(`/sites/${siteId}?$select=id`);
+
+  // Get the default drive for this site
+  const drive = await graphRequest<{ id: string }>(`/sites/${site.id}/drive?$select=id`);
+
+  // Now get the file with download URL
+  // The filePath includes the document library name, so we need to handle that
+  const item = await graphRequest<DriveItem>(
+    `/drives/${drive.id}/root:${filePath}?$select=id,name,size,file,@microsoft.graph.downloadUrl`
+  );
+
+  const downloadUrl = item['@microsoft.graph.downloadUrl'];
+  if (!downloadUrl) {
+    throw new Error('Could not get download URL for file');
+  }
+
+  // Download the file
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${response.statusText}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await writeFile(outputPath, buffer);
+
+  return {
+    success: true,
+    name: item.name,
+    size: item.size,
+    mimeType: item.file?.mimeType,
+    outputPath,
+    bytesWritten: buffer.length,
+  };
+}
+
+/**
+ * Download a file from a SharePoint drive by drive ID and path.
+ */
+export async function downloadDriveFile(params: z.infer<typeof downloadDriveFileSchema>) {
+  const { driveId, path, outputPath } = params;
+  const { writeFile } = await import('fs/promises');
+
+  // Get the file metadata with download URL
+  const item = await graphRequest<DriveItem>(
+    `/drives/${driveId}/root:/${path}?$select=id,name,size,file,@microsoft.graph.downloadUrl`
+  );
+
+  const downloadUrl = item['@microsoft.graph.downloadUrl'];
+  if (!downloadUrl) {
+    throw new Error('Could not get download URL for file');
+  }
+
+  // Download the file
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${response.statusText}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await writeFile(outputPath, buffer);
+
+  return {
+    success: true,
+    name: item.name,
+    size: item.size,
+    mimeType: item.file?.mimeType,
+    outputPath,
+    bytesWritten: buffer.length,
+  };
+}

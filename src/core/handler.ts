@@ -113,6 +113,9 @@ export async function executeCommand(
       case 'onedrive_upload':
         result = await onedrive.uploadFile(onedrive.uploadFileSchema.parse(args));
         break;
+      case 'onedrive_download':
+        result = await onedrive.downloadFile(onedrive.downloadFileSchema.parse(args));
+        break;
 
       // SharePoint
       case 'sharepoint_list_sites':
@@ -135,6 +138,12 @@ export async function executeCommand(
         break;
       case 'sharepoint_search_files':
         result = await sharepoint.searchDriveFiles(sharepoint.searchDriveFilesSchema.parse(args));
+        break;
+      case 'sharepoint_download_url':
+        result = await sharepoint.downloadFromUrl(sharepoint.downloadFromUrlSchema.parse(args));
+        break;
+      case 'sharepoint_download_file':
+        result = await sharepoint.downloadDriveFile(sharepoint.downloadDriveFileSchema.parse(args));
         break;
 
       // Contacts

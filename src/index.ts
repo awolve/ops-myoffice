@@ -374,6 +374,18 @@ const TOOLS = [
       required: ['localPath'],
     },
   },
+  {
+    name: 'onedrive_download',
+    description: 'Download a file from OneDrive to a local path',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'File path in OneDrive (e.g., "Documents/report.pdf")' },
+        outputPath: { type: 'string', description: 'Local file path to save the downloaded file' },
+      },
+      required: ['path', 'outputPath'],
+    },
+  },
 
   // SharePoint
   {
@@ -458,6 +470,31 @@ const TOOLS = [
         maxItems: { type: 'number', description: 'Max results. Default: 25' },
       },
       required: ['driveId', 'query'],
+    },
+  },
+  {
+    name: 'sharepoint_download_url',
+    description: 'Download a file from a SharePoint URL to a local path',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        url: { type: 'string', description: 'SharePoint URL (e.g., https://tenant.sharepoint.com/sites/sitename/path/file.jpg)' },
+        outputPath: { type: 'string', description: 'Local file path to save the downloaded file' },
+      },
+      required: ['url', 'outputPath'],
+    },
+  },
+  {
+    name: 'sharepoint_download_file',
+    description: 'Download a file from SharePoint by drive ID and path',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        driveId: { type: 'string', description: 'Drive ID' },
+        path: { type: 'string', description: 'File path within the drive' },
+        outputPath: { type: 'string', description: 'Local file path to save the downloaded file' },
+      },
+      required: ['driveId', 'path', 'outputPath'],
     },
   },
 
