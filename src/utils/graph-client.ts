@@ -167,6 +167,39 @@ export async function graphUploadLarge<T>(
   throw new Error('Upload completed but no response received');
 }
 
+/**
+ * Download file content from Graph API.
+ * Uses the /content endpoint which returns the file bytes directly.
+ */
+export async function graphDownload(path: string): Promise<Buffer> {
+  const accessToken = await getAccessToken();
+
+  const response = await fetch(`${GRAPH_BASE_URL}${path}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    redirect: 'follow',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage: string;
+
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error?.message || errorText;
+    } catch {
+      errorMessage = errorText;
+    }
+
+    throw new Error(`Graph API error (${response.status}): ${errorMessage}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 export async function graphList<T>(
   path: string,
   options: { maxItems?: number } = {}
