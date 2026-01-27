@@ -497,6 +497,19 @@ const TOOLS = [
       required: ['driveId', 'path', 'outputPath'],
     },
   },
+  {
+    name: 'sharepoint_upload_file',
+    description: 'Upload a file to a SharePoint document library',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        driveId: { type: 'string', description: 'Drive ID of the SharePoint document library' },
+        localPath: { type: 'string', description: 'Local file path to upload' },
+        remotePath: { type: 'string', description: 'Destination path in SharePoint (e.g., "General/Reports/file.xlsx")' },
+      },
+      required: ['driveId', 'localPath', 'remotePath'],
+    },
+  },
 
   // Contacts
   {

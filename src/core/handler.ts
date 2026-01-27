@@ -145,6 +145,9 @@ export async function executeCommand(
       case 'sharepoint_download_file':
         result = await sharepoint.downloadDriveFile(sharepoint.downloadDriveFileSchema.parse(args));
         break;
+      case 'sharepoint_upload_file':
+        result = await sharepoint.uploadDriveFile(sharepoint.uploadDriveFileSchema.parse(args));
+        break;
 
       // Contacts
       case 'contacts_list':

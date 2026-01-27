@@ -664,6 +664,20 @@ sharepointCmd
     });
   });
 
+sharepointCmd
+  .command('upload')
+  .description('Upload a file to a SharePoint document library')
+  .requiredOption('--drive-id <driveId>', 'Drive ID of the SharePoint document library')
+  .requiredOption('--file <localPath>', 'Local file path to upload')
+  .requiredOption('--dest <remotePath>', 'Destination path in SharePoint')
+  .action(async (opts) => {
+    await runCommand('sharepoint_upload_file', {
+      driveId: opts.driveId,
+      localPath: opts.file,
+      remotePath: opts.dest,
+    });
+  });
+
 // Contacts commands
 const contactsCmd = program
   .command('contacts')

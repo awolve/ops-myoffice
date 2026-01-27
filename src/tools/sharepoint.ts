@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { graphRequest, graphList, graphDownload } from '../utils/graph-client.js';
+import { graphRequest, graphList, graphDownload, graphUpload, graphUploadLarge } from '../utils/graph-client.js';
+import { readFile } from 'fs/promises';
+import { basename } from 'path';
 
 // Types
 interface Site {
@@ -250,12 +252,23 @@ export const downloadDriveFileSchema = z.object({
  * Supports:
  * - https://tenant.sharepoint.com/sites/sitename/Shared Documents/path/file.jpg
  * - https://tenant-my.sharepoint.com/personal/user_domain_com/Documents/file.pdf
+ *
+ * Does NOT support (throws helpful error):
+ * - https://tenant.sharepoint.com/sites/sitename/_layouts/15/Doc.aspx?sourcedoc=...
  */
 function parseSharePointUrl(url: string): { siteId: string; remainingPath: string; fullUrl: string } | null {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname;
     const pathParts = decodeURIComponent(parsed.pathname).split('/').filter(Boolean);
+
+    // Detect SharePoint viewer URLs (/_layouts/15/Doc.aspx) and give a helpful error
+    if (pathParts.includes('_layouts')) {
+      throw new Error(
+        'This is a SharePoint viewer URL (/_layouts/15/Doc.aspx), not a direct file URL. ' +
+        'Use "sharepoint download-file" with --drive-id and --path instead, or copy the direct file URL from SharePoint.'
+      );
+    }
 
     // Handle /sites/sitename/... pattern
     if (pathParts[0] === 'sites' && pathParts.length >= 2) {
@@ -277,7 +290,11 @@ function parseSharePointUrl(url: string): { siteId: string; remainingPath: strin
     }
 
     return null;
-  } catch {
+  } catch (error) {
+    // Re-throw our custom error about viewer URLs
+    if (error instanceof Error && error.message.includes('SharePoint viewer URL')) {
+      throw error;
+    }
     return null;
   }
 }
@@ -344,7 +361,8 @@ async function findDriveAndPath(
  */
 export async function downloadFromUrl(params: z.infer<typeof downloadFromUrlSchema>) {
   const { url, outputPath } = params;
-  const { writeFile } = await import('fs/promises');
+  const { writeFile, mkdir } = await import('fs/promises');
+  const { dirname } = await import('path');
 
   const parsed = parseSharePointUrl(url);
   if (!parsed) {
@@ -364,6 +382,9 @@ export async function downloadFromUrl(params: z.infer<typeof downloadFromUrlSche
   // Download the file content using the /content endpoint
   // This works for both OneDrive and SharePoint files
   const buffer = await graphDownload(`/drives/${driveId}/items/${item.id}/content`);
+
+  // Create parent directories if they don't exist
+  await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, buffer);
 
   return {
@@ -381,7 +402,8 @@ export async function downloadFromUrl(params: z.infer<typeof downloadFromUrlSche
  */
 export async function downloadDriveFile(params: z.infer<typeof downloadDriveFileSchema>) {
   const { driveId, path, outputPath } = params;
-  const { writeFile } = await import('fs/promises');
+  const { writeFile, mkdir } = await import('fs/promises');
+  const { dirname } = await import('path');
 
   // Get the file metadata
   const item = await graphRequest<DriveItem>(
@@ -390,6 +412,9 @@ export async function downloadDriveFile(params: z.infer<typeof downloadDriveFile
 
   // Download the file content using the /content endpoint
   const buffer = await graphDownload(`/drives/${driveId}/items/${item.id}/content`);
+
+  // Create parent directories if they don't exist
+  await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, buffer);
 
   return {
@@ -399,5 +424,87 @@ export async function downloadDriveFile(params: z.infer<typeof downloadDriveFile
     mimeType: item.file?.mimeType,
     outputPath,
     bytesWritten: buffer.length,
+  };
+}
+
+// Upload schema and function
+
+export const uploadDriveFileSchema = z.object({
+  driveId: z.string().describe('Drive ID of the SharePoint document library'),
+  localPath: z.string().describe('Local file path to upload'),
+  remotePath: z.string().describe('Destination path in SharePoint (e.g., "General/Reports/file.xlsx")'),
+});
+
+// MIME type detection from file extension
+const MIME_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
+  '.xml': 'application/xml',
+  '.html': 'text/html',
+  '.htm': 'text/html',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.zip': 'application/zip',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+};
+
+function getMimeType(filename: string): string {
+  const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0] || '';
+  return MIME_TYPES[ext] || 'application/octet-stream';
+}
+
+/**
+ * Upload a file to a SharePoint document library.
+ */
+export async function uploadDriveFile(params: z.infer<typeof uploadDriveFileSchema>) {
+  const { driveId, localPath, remotePath } = params;
+
+  // Read the local file
+  const content = await readFile(localPath);
+
+  // Get filename and MIME type
+  const filename = basename(localPath);
+  const contentType = getMimeType(filename);
+
+  // Choose upload method based on file size
+  // Simple upload for files <= 4MB, resumable for larger
+  const MAX_SIMPLE_UPLOAD = 4 * 1024 * 1024;
+  let uploaded: DriveItem;
+
+  if (content.length <= MAX_SIMPLE_UPLOAD) {
+    // Simple upload (single request)
+    uploaded = await graphUpload<DriveItem>(
+      `/drives/${driveId}/root:/${remotePath}:/content`,
+      content,
+      { contentType }
+    );
+  } else {
+    // Resumable upload for large files
+    uploaded = await graphUploadLarge<DriveItem>(
+      `/drives/${driveId}/root:/${remotePath}`,
+      content
+    );
+  }
+
+  return {
+    success: true,
+    id: uploaded.id,
+    name: uploaded.name,
+    size: uploaded.size,
+    webUrl: uploaded.webUrl,
+    mimeType: uploaded.file?.mimeType,
+    destPath: remotePath,
   };
 }

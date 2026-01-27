@@ -290,7 +290,8 @@ export const downloadFileSchema = z.object({
  */
 export async function downloadFile(params: z.infer<typeof downloadFileSchema>) {
   const { path, outputPath } = params;
-  const { writeFile } = await import('fs/promises');
+  const { writeFile, mkdir } = await import('fs/promises');
+  const { dirname } = await import('path');
 
   // Get the file metadata with download URL
   const item = await graphRequest<DriveItem>(
@@ -309,6 +310,9 @@ export async function downloadFile(params: z.infer<typeof downloadFileSchema>) {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
+
+  // Create parent directories if they don't exist
+  await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, buffer);
 
   return {

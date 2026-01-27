@@ -154,6 +154,7 @@ myoffice config show
 - `myoffice sharepoint search <driveId> <query>` - Search files
 - `myoffice sharepoint download --url <url> --output <path>` - Download file from SharePoint URL
 - `myoffice sharepoint download-file --drive-id <id> --path <path> --output <path>` - Download file by drive ID
+- `myoffice sharepoint upload --drive-id <id> --file <path> --dest <path>` - Upload file to SharePoint
 
 **Contacts:**
 - `myoffice contacts list` - List contacts
