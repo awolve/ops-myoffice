@@ -36,6 +36,13 @@ interface PlannerTask {
   dueDateTime?: string;
   assignments: Record<string, { assignedBy?: object; assignedDateTime?: string }>;
   createdDateTime: string;
+  createdBy?: {
+    user?: { id: string; displayName?: string; email?: string };
+  };
+  completedDateTime?: string;
+  completedBy?: {
+    user?: { id: string; displayName?: string; email?: string };
+  };
   orderHint: string;
   conversationThreadId?: string;
   '@odata.etag'?: string;
@@ -344,6 +351,28 @@ async function resolveUserId(emailOrId: string): Promise<string> {
   return user.id;
 }
 
+// Cache for user details
+const userDetailsCache = new Map<string, GraphUser>();
+
+// Get user details by ID
+async function getUserDetails(userId: string): Promise<GraphUser | null> {
+  try {
+    // Check cache
+    const cached = userDetailsCache.get(userId);
+    if (cached) {
+      return cached;
+    }
+
+    // Fetch user details
+    const user = await graphRequest<GraphUser>(`/users/${userId}`);
+    userDetailsCache.set(userId, user);
+    return user;
+  } catch (error) {
+    // If user lookup fails, return null (user might be deleted or external)
+    return null;
+  }
+}
+
 // ============================================================================
 // Plans (Read-Only)
 // ============================================================================
@@ -351,9 +380,57 @@ async function resolveUserId(emailOrId: string): Promise<string> {
 export async function listPlans(params: z.infer<typeof listPlansSchema>) {
   const { maxItems = 50 } = params;
 
-  const plans = await graphList<PlannerPlan>('/me/planner/plans', { maxItems });
+  // Get all M365 groups the user is a member of
+  // The /me/planner/plans endpoint only returns plans where user has tasks or favorited
+  // To get ALL plans from user's groups, we need to enumerate groups and fetch plans per group
+  interface GroupMembership {
+    '@odata.type': string;
+    id: string;
+    displayName?: string;
+    groupTypes?: string[];
+  }
 
-  return plans.map((p) => ({
+  const memberships = await graphList<GroupMembership>('/me/memberOf', { maxItems: 200 });
+
+  // Filter for M365 groups (Unified groups) - these can have Planner plans
+  const m365Groups = memberships.filter(
+    (m) => m['@odata.type'] === '#microsoft.graph.group' && m.groupTypes?.includes('Unified')
+  );
+
+  // Fetch plans from each group in parallel
+  const planPromises = m365Groups.map(async (group) => {
+    try {
+      const groupPlans = await graphList<PlannerPlan>(`/groups/${group.id}/planner/plans`, {
+        maxItems: 50,
+      });
+      return groupPlans;
+    } catch {
+      // Group might not have any plans or user might not have access
+      return [];
+    }
+  });
+
+  const planArrays = await Promise.all(planPromises);
+  const allPlans = planArrays.flat();
+
+  // Deduplicate by plan ID (in case same plan appears multiple times)
+  const uniquePlans = new Map<string, PlannerPlan>();
+  for (const plan of allPlans) {
+    if (plan.id && !uniquePlans.has(plan.id)) {
+      uniquePlans.set(plan.id, plan);
+    }
+  }
+
+  // Sort by creation date (newest first) and limit
+  const sortedPlans = Array.from(uniquePlans.values())
+    .sort((a, b) => {
+      const dateA = a.createdDateTime ? new Date(a.createdDateTime).getTime() : 0;
+      const dateB = b.createdDateTime ? new Date(b.createdDateTime).getTime() : 0;
+      return dateB - dateA;
+    })
+    .slice(0, maxItems);
+
+  return sortedPlans.map((p) => ({
     id: p.id,
     title: p.title,
     owner: p.owner,
@@ -465,6 +542,9 @@ export async function listPlannerTasks(params: z.infer<typeof listPlannerTasksSc
     startDateTime: t.startDateTime,
     assignedTo: Object.keys(t.assignments || {}),
     createdDateTime: t.createdDateTime,
+    createdBy: t.createdBy?.user,
+    completedDateTime: t.completedDateTime,
+    completedBy: t.completedBy?.user,
   }));
 }
 
@@ -472,6 +552,32 @@ export async function getPlannerTask(params: z.infer<typeof getPlannerTaskSchema
   const { taskId } = params;
 
   const task = await graphRequest<PlannerTask>(`/planner/tasks/${taskId}`);
+
+  // Enrich creator details with full user info
+  let createdByUser = task.createdBy?.user;
+  if (createdByUser?.id && !createdByUser.displayName) {
+    const userDetails = await getUserDetails(createdByUser.id);
+    if (userDetails) {
+      createdByUser = {
+        id: userDetails.id,
+        displayName: userDetails.displayName,
+        email: userDetails.mail || userDetails.userPrincipalName,
+      };
+    }
+  }
+
+  // Enrich completed-by details with full user info
+  let completedByUser = task.completedBy?.user;
+  if (completedByUser?.id && !completedByUser.displayName) {
+    const userDetails = await getUserDetails(completedByUser.id);
+    if (userDetails) {
+      completedByUser = {
+        id: userDetails.id,
+        displayName: userDetails.displayName,
+        email: userDetails.mail || userDetails.userPrincipalName,
+      };
+    }
+  }
 
   return {
     id: task.id,
@@ -485,6 +591,9 @@ export async function getPlannerTask(params: z.infer<typeof getPlannerTaskSchema
     startDateTime: task.startDateTime,
     assignedTo: Object.keys(task.assignments || {}),
     createdDateTime: task.createdDateTime,
+    createdBy: createdByUser,
+    completedDateTime: task.completedDateTime,
+    completedBy: completedByUser,
   };
 }
 

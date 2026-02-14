@@ -41,6 +41,9 @@ export async function executeCommand(
       case 'mail_send':
         result = await mail.sendMail(mail.sendMailSchema.parse(args));
         break;
+      case 'mail_draft':
+        result = await mail.createDraft(mail.createDraftSchema.parse(args));
+        break;
       case 'mail_reply':
         result = await mail.replyMail(mail.replyMailSchema.parse(args));
         break;
@@ -49,6 +52,15 @@ export async function executeCommand(
         break;
       case 'mail_mark_read':
         result = await mail.markAsRead(mail.markAsReadSchema.parse(args));
+        break;
+      case 'mail_list_attachments':
+        result = await mail.listAttachments(mail.listAttachmentsSchema.parse(args));
+        break;
+      case 'mail_download_attachment':
+        result = await mail.downloadAttachment(mail.downloadAttachmentSchema.parse(args));
+        break;
+      case 'mail_move':
+        result = await mail.moveMail(mail.moveMailSchema.parse(args));
         break;
 
       // Calendar
@@ -309,7 +321,7 @@ export async function executeCommand(
 
         result = {
           server: {
-            name: 'myoffice-mcp',
+            name: 'myoffice',
             version: VERSION,
             nodeVersion: process.version,
             platform: process.platform,

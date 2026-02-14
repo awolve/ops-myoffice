@@ -1,12 +1,12 @@
-# MyOffice MCP
+# MyOffice CLI
 
-A lightweight MCP (Model Context Protocol) server and CLI for personal Microsoft 365 access, designed for AI assistants like Claude Code.
+A command-line interface for personal Microsoft 365 access via Microsoft Graph API.
 
 Unlike admin-focused M365 tools, this uses **delegated authentication** - users authenticate as themselves and can only access their own data.
 
 ## Features
 
-- **Email** - List, read, search, send, reply, delete, mark read/unread
+- **Email** - List, read, search, send (with attachments), reply, delete, mark read/unread, move to folders
 - **Calendar** - List, create, update, delete events (with Teams meetings)
 - **Tasks** - Manage Microsoft To Do lists and tasks
 - **Planner** - Access plans, buckets, and tasks
@@ -66,8 +66,11 @@ myoffice status
 # Email
 myoffice mail list
 myoffice mail list --unread
+myoffice mail list --folder "Under Processing"  # Custom folders supported
 myoffice mail read <id>
+myoffice mail move --id <id> --folder "Captured"
 myoffice mail send --to user@example.com --subject "Hi" --body "Hello"
+myoffice mail send --to user@example.com --subject "Report" --body "See attached" --attach report.pdf  # With attachment
 
 # Calendar
 myoffice calendar list
@@ -96,44 +99,11 @@ myoffice mail list --json
 
 Run `myoffice --help` for all commands.
 
-## MCP Server Usage
-
-Add to your Claude Code MCP settings:
-
-```json
-{
-  "mcpServers": {
-    "myoffice": {
-      "command": "myoffice-mcp",
-      "env": {
-        "M365_CLIENT_ID": "your-client-id"
-      }
-    }
-  }
-}
-```
-
-Or with full path if not installed globally:
-
-```json
-{
-  "mcpServers": {
-    "myoffice": {
-      "command": "node",
-      "args": ["/path/to/ops-myoffice/dist/index.js"],
-      "env": {
-        "M365_CLIENT_ID": "your-client-id"
-      }
-    }
-  }
-}
-```
-
 ## Azure AD App Registration
 
 1. Go to [Azure Portal](https://portal.azure.com) > Azure Active Directory > App registrations
 2. Click **New registration**
-   - Name: `MyOffice MCP` (or your choice)
+   - Name: `MyOffice CLI` (or your choice)
    - Supported account types: **Accounts in any organizational directory**
    - Redirect URI: Leave blank (uses device code flow)
 3. Note the **Application (client) ID**
@@ -163,10 +133,9 @@ npm run login    # Authenticate with Microsoft
 
 ```
 src/
-├── index.ts           # MCP server entry point
 ├── cli.ts             # CLI entry point (Commander.js)
 ├── core/
-│   └── handler.ts     # Shared tool dispatch logic
+│   └── handler.ts     # Command dispatch logic
 ├── cli/
 │   └── formatter.ts   # Human-readable output formatting
 ├── auth/              # Authentication (device code flow, token cache)
@@ -183,9 +152,6 @@ npx tsx src/cli.ts mail list
 # Or build first then test
 npm run build
 node dist/cli.js mail list
-
-# Test MCP server
-npm run dev
 ```
 
 ## Deploying to npm

@@ -184,12 +184,12 @@ configCmd
 // Mail commands
 const mailCmd = program
   .command('mail')
-  .description('Email operations (list, read, send, reply, search, delete, mark)');
+  .description('Email operations (list, read, send, draft, reply, search, delete, mark, move)');
 
 mailCmd
   .command('list')
   .description('List emails from a folder')
-  .option('--folder <name>', 'Folder name (default: inbox)')
+  .option('--folder <name>', 'Folder name - use "inbox", "sentitems", "drafts" or custom folder name (default: inbox)')
   .option('--limit <n>', 'Maximum emails to return', '25')
   .option('--unread', 'Only show unread emails')
   .action(async (opts) => {
@@ -228,6 +228,7 @@ mailCmd
   .requiredOption('--body <body>', 'Email body')
   .option('--cc <emails...>', 'CC recipients')
   .option('--bcc <emails...>', 'BCC recipients')
+  .option('--attach <files...>', 'File paths to attach')
   .option('--no-html', 'Send as plain text')
   .option('--no-signature', 'Do not append signature')
   .action(async (opts) => {
@@ -237,6 +238,31 @@ mailCmd
       body: opts.body,
       cc: opts.cc,
       bcc: opts.bcc,
+      attachments: opts.attach,
+      isHtml: opts.html !== false,
+      useSignature: opts.signature !== false,
+    });
+  });
+
+mailCmd
+  .command('draft')
+  .description('Create an email draft')
+  .requiredOption('--to <emails...>', 'Recipient emails')
+  .requiredOption('--subject <subject>', 'Email subject')
+  .requiredOption('--body <body>', 'Email body')
+  .option('--cc <emails...>', 'CC recipients')
+  .option('--bcc <emails...>', 'BCC recipients')
+  .option('--attach <files...>', 'File paths to attach')
+  .option('--no-html', 'Create as plain text')
+  .option('--no-signature', 'Do not append signature')
+  .action(async (opts) => {
+    await runCommand('mail_draft', {
+      to: opts.to,
+      subject: opts.subject,
+      body: opts.body,
+      cc: opts.cc,
+      bcc: opts.bcc,
+      attachments: opts.attach,
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
     });
@@ -277,6 +303,42 @@ mailCmd
     await runCommand('mail_mark_read', {
       messageId: opts.id,
       isRead: !opts.unread,
+    });
+  });
+
+mailCmd
+  .command('move')
+  .description('Move an email to a folder (creates folder if needed)')
+  .requiredOption('--id <messageId>', 'The message ID')
+  .requiredOption('--folder <name>', 'Destination folder name')
+  .action(async (opts) => {
+    await runCommand('mail_move', {
+      messageId: opts.id,
+      folderName: opts.folder,
+    });
+  });
+
+mailCmd
+  .command('attachments')
+  .description('List attachments in an email')
+  .requiredOption('--id <messageId>', 'The message ID')
+  .action(async (opts) => {
+    await runCommand('mail_list_attachments', {
+      messageId: opts.id,
+    });
+  });
+
+mailCmd
+  .command('download-attachment')
+  .description('Download an email attachment')
+  .requiredOption('--id <messageId>', 'The message ID')
+  .requiredOption('--attachment-id <attachmentId>', 'The attachment ID')
+  .requiredOption('--output <path>', 'Output file path')
+  .action(async (opts) => {
+    await runCommand('mail_download_attachment', {
+      messageId: opts.id,
+      attachmentId: opts.attachmentId,
+      outputPath: opts.output,
     });
   });
 

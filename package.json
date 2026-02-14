@@ -1,11 +1,10 @@
 {
   "name": "@awolve/myoffice",
-  "version": "1.9.0",
-  "description": "CLI and MCP server for personal Microsoft 365 access - email, calendar, tasks, OneDrive, Teams, Planner",
+  "version": "2.2.0",
+  "description": "CLI for personal Microsoft 365 access - email, calendar, tasks, OneDrive, Teams, Planner",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/cli.js",
   "bin": {
-    "myoffice-mcp": "dist/index.js",
     "myoffice": "dist/cli.js"
   },
   "publishConfig": {
@@ -15,14 +14,13 @@
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "postinstall": "echo '\n✅ @awolve/myoffice installed!\n\nRun: myoffice --help\nOr:  npx @awolve/myoffice --help\n'",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
     "login": "tsx src/cli.ts login"
   },
   "dependencies": {
     "@azure/identity": "^4.2.0",
     "@azure/msal-node": "^2.9.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "commander": "^12.1.0",
     "zod": "^3.23.0"
   },
@@ -45,11 +43,11 @@
     "url": "https://github.com/awolve/ops-myoffice.git"
   },
   "keywords": [
-    "mcp",
+    "cli",
     "microsoft365",
     "outlook",
     "calendar",
-    "ai-assistant",
-    "claude"
+    "office365",
+    "email"
   ]
 }

@@ -1,21 +1,27 @@
-# MyOffice MCP Server
+# MyOffice CLI
 
 ## Overview
 
-A lightweight MCP (Model Context Protocol) server providing personal Microsoft 365 access via Microsoft Graph API. Uses delegated authentication - users authenticate as themselves and can only access their own data.
+A command-line interface for personal Microsoft 365 access via Microsoft Graph API. Uses delegated authentication - users authenticate as themselves and can only access their own data.
 
-**Two entry points:**
-- `myoffice-mcp` - MCP server for AI assistants (Claude Code MCP integration)
-- `myoffice` - CLI for terminal use (Claude Code can call via Bash)
+**Project Management:**
+- Planner Plan ID: `_gFp0xaWK06WnP5z5BEPmZgAE7LQ` (MyOffice CLI)
+- On startup, check the plan for current tasks and priorities using: `npx @awolve/myoffice@latest planner tasks --plan-id "_gFp0xaWK06WnP5z5BEPmZgAE7LQ" --json`
+
+**IMPORTANT:** Before using the `myoffice` CLI, ALWAYS check if relevant Awolve skills are available first:
+- `awolve-general:myoffice-login` - For authentication issues
+- `awolve-general:myoffice-setup` - For initial setup
+- `awolve-general:awolve-myoffice` - For general MyOffice operations
+
+These skills handle authentication, configuration, and common issues more gracefully than direct CLI calls.
 
 ## Architecture
 
 ```
 src/
-├── index.ts           # MCP server entry point, tool definitions
 ├── cli.ts             # CLI entry point (Commander.js)
 ├── core/
-│   └── handler.ts     # Shared tool dispatch logic
+│   └── handler.ts     # Shared command dispatch logic
 ├── cli/
 │   └── formatter.ts   # Human-readable output formatting
 ├── auth/
@@ -42,9 +48,8 @@ src/
 
 ## Key Files
 
-- `src/index.ts` - MCP server entry point, tool definitions (TOOLS array)
 - `src/cli.ts` - CLI entry point with all commands
-- `src/core/handler.ts` - Shared tool dispatch (used by both MCP and CLI)
+- `src/core/handler.ts` - Command dispatch logic
 - `src/cli/formatter.ts` - Human-readable output formatting
 - `src/auth/config.ts` - Azure AD scopes (add new permissions here)
 - `src/utils/graph-client.ts` - All Graph API calls go through this
@@ -57,13 +62,13 @@ src/
 - Requires Azure AD app registration with delegated permissions
 - Environment variables: `M365_CLIENT_ID` (required), `M365_TENANT_ID` (optional, defaults to "common")
 
-## Adding New Tools
+## Adding New Commands
 
 1. Create or update tool module in `src/tools/`
 2. Define Zod schema for input validation
 3. Implement function that calls Graph API via `graphClient.fetch()`
-4. Add tool definition to `TOOLS` array in `src/index.ts`
-5. Add case to switch statement in CallToolRequestSchema handler
+4. Add command to `src/cli.ts`
+5. Add case to switch statement in `src/core/handler.ts`
 6. If new permissions needed, add scopes to `src/auth/config.ts`
 
 ## Development
@@ -111,13 +116,17 @@ myoffice config show
 | `myoffice config set --client-id <id>` | Save client ID to config file |
 
 **Mail:**
-- `myoffice mail list [--folder <name>] [--unread]` - List emails
+- `myoffice mail list [--folder <name>] [--unread]` - List emails (supports custom folder names)
 - `myoffice mail read <id>` - Read email
 - `myoffice mail search <query>` - Search emails
-- `myoffice mail send --to <addr> --subject <subj> --body <body>` - Send email
+- `myoffice mail send --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Send email with optional attachments
+- `myoffice mail draft --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Create draft email with optional attachments
 - `myoffice mail reply <id> --body <body> [--all]` - Reply to email
 - `myoffice mail delete <id>` - Delete email
 - `myoffice mail mark <id> [--unread]` - Mark as read/unread
+- `myoffice mail move --id <id> --folder <name>` - Move email to folder (creates folder if needed)
+- `myoffice mail attachments --id <id>` - List email attachments
+- `myoffice mail download-attachment --id <id> --attachment-id <attachId> --output <path>` - Download attachment
 
 **Calendar:**
 - `myoffice calendar list [--start <date>] [--end <date>]` - List events
@@ -205,11 +214,47 @@ myoffice mail list --json
 myoffice --json calendar list
 ```
 
+### Email Folder Examples
+
+List emails from custom folders:
+
+```bash
+# List from inbox (built-in folder)
+myoffice mail list --folder inbox
+
+# List from custom folders
+myoffice mail list --folder "Under Processing"
+myoffice mail list --folder "Captured"
+myoffice mail list --folder "Skipped"
+
+# List unread emails from custom folder
+myoffice mail list --folder "Under Processing" --unread --json
+```
+
+### Email Attachment Examples
+
+Send emails with attachments:
+
+```bash
+# Send email with single attachment
+myoffice mail send --to user@example.com --subject "Report" --body "See attached" --attach report.pdf
+
+# Send email with multiple attachments
+myoffice mail send --to user@example.com --subject "Documents" --body "Here are the files" --attach file1.pdf file2.xlsx
+
+# Create draft with attachments
+myoffice mail draft --to user@example.com --subject "Draft with files" --body "Review these" --attach document.docx
+
+# Download attachments from received email
+myoffice mail attachments --id <message-id> --json
+myoffice mail download-attachment --id <message-id> --attachment-id <attach-id> --output ~/Downloads/file.pdf
+```
+
 ## Testing
 
-No automated tests currently. Test manually by running the MCP server and calling tools via Claude Code.
+No automated tests currently. Test manually by running CLI commands.
 
-Use `debug_info` tool to check server status, version, and auth state.
+Use `myoffice debug` to check version and auth state.
 
 ## Specs
 
@@ -223,6 +268,13 @@ Feature specs are in `specs/` directory:
 
 ## Common Tasks
 
+### On session startup
+1. Check the Planner plan for current tasks and priorities:
+   ```bash
+   npx @awolve/myoffice@latest planner tasks --plan-id "_gFp0xaWK06WnP5z5BEPmZgAE7LQ" --json
+   ```
+2. Review open tasks to understand current priorities
+
 ### Before pushing new features
 1. Bump the version in `package.json`
 2. Check `specs/` for a spec that describes the current changes
@@ -232,8 +284,8 @@ Feature specs are in `specs/` directory:
 ### Add new Graph API permission
 Add scope to `scopes` array in `src/auth/config.ts`. User must re-authenticate.
 
-### Debug MCP server issues
-Call the `debug_info` tool to see server info, environment variables, and auth status.
+### Debug issues
+Run `myoffice debug` to see version, environment variables, and auth status.
 
 ## Planner Integration
 
@@ -250,5 +302,5 @@ Microsoft Planner provides team-oriented task management. Key concepts:
 - Task assignments accept email addresses (resolved to user IDs automatically)
 - Progress values: `notStarted`, `inProgress`, `completed`
 - Priority values: `urgent`, `important`, `medium`, `low`
-- Plans cannot be created via MCP (would require M365 Group creation)
+- Plans cannot be created via Graph API (would require M365 Group creation)
 - Attachments are stored as "references" (URLs). The `planner upload` command uploads to the plan's SharePoint site (accessible to all plan members) at `Planner Attachments/<Plan Name>/<filename>`. File type is auto-detected from the URL.
