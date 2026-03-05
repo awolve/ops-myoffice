@@ -35,6 +35,8 @@ interface DriveItem {
   webUrl: string;
   folder?: { childCount: number };
   file?: { mimeType: string };
+  createdBy?: { user?: { displayName?: string; email?: string; id?: string } };
+  lastModifiedBy?: { user?: { displayName?: string; email?: string; id?: string } };
   '@microsoft.graph.downloadUrl'?: string;
 }
 
@@ -169,7 +171,7 @@ export async function getDriveFile(params: z.infer<typeof getDriveFileSchema>) {
   const { driveId, path } = params;
 
   const item = await graphRequest<DriveItem>(
-    `/drives/${driveId}/root:/${path}?$select=id,name,size,createdDateTime,lastModifiedDateTime,webUrl,file`
+    `/drives/${driveId}/root:/${path}?$select=id,name,size,createdDateTime,lastModifiedDateTime,createdBy,lastModifiedBy,webUrl,file`
   );
 
   return {
@@ -179,6 +181,8 @@ export async function getDriveFile(params: z.infer<typeof getDriveFileSchema>) {
     mimeType: item.file?.mimeType,
     created: item.createdDateTime,
     modified: item.lastModifiedDateTime,
+    createdBy: item.createdBy,
+    lastModifiedBy: item.lastModifiedBy,
     webUrl: item.webUrl,
   };
 }
