@@ -184,7 +184,14 @@ configCmd
 // Mail commands
 const mailCmd = program
   .command('mail')
-  .description('Email operations (list, read, send, draft, reply, search, delete, mark, move)');
+  .description('Email operations (folders, list, read, send, draft, reply, search, delete, mark, move)');
+
+mailCmd
+  .command('folders')
+  .description('List all mail folders')
+  .action(async () => {
+    await runCommand('mail_folders', {});
+  });
 
 mailCmd
   .command('list')

@@ -150,7 +150,60 @@ async function getFolderIdByName(folderName: string): Promise<string | null> {
   return null;
 }
 
+export const listFoldersSchema = z.object({});
+
 // Tool implementations
+export async function listFolders() {
+  interface MailFolder {
+    id: string;
+    displayName: string;
+    parentFolderId: string;
+    totalItemCount: number;
+    unreadItemCount: number;
+    childFolderCount: number;
+  }
+
+  const folders = await graphList<MailFolder>(
+    `/me/mailFolders?$select=id,displayName,parentFolderId,totalItemCount,unreadItemCount,childFolderCount&$top=100`
+  );
+
+  // Fetch child folders for any folder with children
+  const allFolders: Array<{
+    id: string;
+    name: string;
+    parentId: string;
+    totalItems: number;
+    unreadItems: number;
+  }> = [];
+
+  for (const f of folders) {
+    allFolders.push({
+      id: f.id,
+      name: f.displayName,
+      parentId: f.parentFolderId,
+      totalItems: f.totalItemCount,
+      unreadItems: f.unreadItemCount,
+    });
+
+    if (f.childFolderCount > 0) {
+      const children = await graphList<MailFolder>(
+        `/me/mailFolders/${f.id}/childFolders?$select=id,displayName,parentFolderId,totalItemCount,unreadItemCount,childFolderCount&$top=100`
+      );
+      for (const child of children) {
+        allFolders.push({
+          id: child.id,
+          name: `${f.displayName}/${child.displayName}`,
+          parentId: child.parentFolderId,
+          totalItems: child.totalItemCount,
+          unreadItems: child.unreadItemCount,
+        });
+      }
+    }
+  }
+
+  return allFolders;
+}
+
 export async function listMails(params: z.infer<typeof listMailsSchema>) {
   const { folder = 'inbox', maxItems = 25, unreadOnly = false } = params;
 

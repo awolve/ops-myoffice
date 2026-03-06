@@ -29,6 +29,9 @@ export async function executeCommand(
 
     switch (toolName) {
       // Mail
+      case 'mail_folders':
+        result = await mail.listFolders();
+        break;
       case 'mail_list':
         result = await mail.listMails(mail.listMailsSchema.parse(args));
         break;
