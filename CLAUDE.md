@@ -191,6 +191,7 @@ myoffice config show
 - `myoffice planner bucket-create <planId> <name>` - Create bucket
 - `myoffice planner bucket-update <id> <name>` - Update bucket
 - `myoffice planner bucket-delete <id>` - Delete bucket
+- `myoffice planner my-tasks [--status <s>] [--limit <n>]` - List all tasks assigned to me across all plans
 - `myoffice planner tasks <planId> [--bucket <id>]` - List tasks
 - `myoffice planner task <id>` - Get task details
 - `myoffice planner task-create <planId> <title> [--bucket <id>]` - Create task
@@ -256,15 +257,18 @@ No automated tests currently. Test manually by running CLI commands.
 
 Use `myoffice debug` to check version and auth state.
 
+## Versioning
+
+- Version is tracked in `package.json`
+- Run `npm run build` after bumping the version
+- Publish with `npm publish`
+
 ## Specs
 
-Feature specs are in `specs/` directory:
-- `001-personal-m365-mcp/` - Initial implementation (requirements, design, tasks)
-- `002 shared-onedrive-sharepoint/` - SharePoint and shared files access
-- `003 version-management/` - Dynamic version from package.json
-- `007 cli-interface/` - CLI for terminal access
-- `008 teams-integration/` - Teams and chats support
-- `009-planner-integration/` - Microsoft Planner support (plans, buckets, tasks)
+Feature specs live in the awolve-cortex context repo, not in this repo:
+`~/code/awolve-cortex/awolve-context/operations/tools/myoffice/specs/`
+
+Do NOT create specs in this repo.
 
 ## Common Tasks
 
@@ -277,8 +281,8 @@ Feature specs are in `specs/` directory:
 
 ### Before pushing new features
 1. Bump the version in `package.json`
-2. Check `specs/` for a spec that describes the current changes
-3. If no relevant spec exists, run `/retro-spec` to document the work
+2. Check `~/code/awolve-cortex/awolve-context/operations/tools/myoffice/specs/` for a spec that describes the current changes
+3. If no relevant spec exists, run `/retro-spec` to document the work (spec goes in awolve-cortex)
 4. Commit and push
 
 ### Add new Graph API permission

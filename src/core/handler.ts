@@ -228,6 +228,9 @@ export async function executeCommand(
       case 'planner_delete_bucket':
         result = await planner.deleteBucket(planner.deleteBucketSchema.parse(args));
         break;
+      case 'planner_my_tasks':
+        result = await planner.listMyTasks(planner.listMyTasksSchema.parse(args));
+        break;
       case 'planner_list_tasks':
         result = await planner.listPlannerTasks(planner.listPlannerTasksSchema.parse(args));
         break;

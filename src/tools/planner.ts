@@ -129,6 +129,15 @@ export const deleteBucketSchema = z.object({
   bucketId: z.string().describe('The bucket ID'),
 });
 
+// My Tasks (cross-plan)
+export const listMyTasksSchema = z.object({
+  status: z
+    .enum(['notStarted', 'inProgress', 'completed'])
+    .optional()
+    .describe('Filter by progress status'),
+  maxItems: z.number().optional().describe('Maximum number of tasks. Default: 100'),
+});
+
 // Tasks
 export const listPlannerTasksSchema = z.object({
   planId: z.string().describe('The plan ID'),
@@ -515,6 +524,66 @@ export async function deleteBucket(params: z.infer<typeof deleteBucketSchema>) {
   });
 
   return { success: true, message: 'Bucket deleted' };
+}
+
+// ============================================================================
+// My Tasks (cross-plan)
+// ============================================================================
+
+export async function listMyTasks(params: z.infer<typeof listMyTasksSchema>) {
+  const { status, maxItems = 100 } = params;
+
+  let tasks = await graphList<PlannerTask>('/me/planner/tasks', { maxItems });
+
+  if (status) {
+    const targetPercent = status === 'notStarted' ? 0 : status === 'inProgress' ? 50 : 100;
+    tasks = tasks.filter((t) => t.percentComplete === targetPercent);
+  }
+
+  // Resolve plan names in parallel
+  const planIds = [...new Set(tasks.map((t) => t.planId))];
+  const planNames = new Map<string, string>();
+  await Promise.all(
+    planIds.map(async (id) => {
+      try {
+        const plan = await graphRequest<PlannerPlan>(`/planner/plans/${id}`);
+        planNames.set(id, plan.title);
+      } catch {
+        planNames.set(id, id);
+      }
+    }),
+  );
+
+  // Resolve user details for all assignees in parallel
+  const allUserIds = [...new Set(tasks.flatMap((t) => Object.keys(t.assignments || {})))];
+  const userNames = new Map<string, { displayName?: string; email?: string }>();
+  await Promise.all(
+    allUserIds.map(async (uid) => {
+      const details = await getUserDetails(uid);
+      if (details) {
+        userNames.set(uid, { displayName: details.displayName, email: details.mail || details.userPrincipalName });
+      }
+    }),
+  );
+
+  return tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    planId: t.planId,
+    planName: planNames.get(t.planId) || t.planId,
+    bucketId: t.bucketId,
+    progress: progressToSemantic(t.percentComplete),
+    percentComplete: t.percentComplete,
+    priority: PRIORITY_REVERSE[t.priority] || 'medium',
+    dueDateTime: t.dueDateTime,
+    startDateTime: t.startDateTime,
+    assignedTo: Object.keys(t.assignments || {}).map((uid) => {
+      const u = userNames.get(uid);
+      return u ? { userId: uid, displayName: u.displayName, email: u.email } : uid;
+    }),
+    createdDateTime: t.createdDateTime,
+    completedDateTime: t.completedDateTime,
+  }));
 }
 
 // ============================================================================

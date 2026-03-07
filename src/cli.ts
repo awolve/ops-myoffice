@@ -1002,6 +1002,18 @@ plannerCmd
   });
 
 plannerCmd
+  .command('my-tasks')
+  .description('List all tasks assigned to me across all plans')
+  .option('--status <status>', 'Filter by status (notStarted, inProgress, completed)')
+  .option('--limit <n>', 'Maximum tasks', '100')
+  .action(async (opts) => {
+    await runCommand('planner_my_tasks', {
+      status: opts.status,
+      maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+    });
+  });
+
+plannerCmd
   .command('tasks')
   .description('List tasks in a plan')
   .requiredOption('--plan-id <planId>', 'Plan ID')
