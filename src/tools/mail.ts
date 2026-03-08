@@ -221,7 +221,7 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
   console.error(`[DEBUG] Folder ID (raw): ${folderId}`);
   console.error(`[DEBUG] Folder ID (encoded): ${encodedFolderId}`);
 
-  let path = `/me/mailFolders/${encodedFolderId}/messages?$select=id,subject,from,receivedDateTime,isRead,bodyPreview,hasAttachments,meetingMessageType&$orderby=receivedDateTime desc&$top=${maxItems}`;
+  let path = `/me/mailFolders/${encodedFolderId}/messages?$orderby=receivedDateTime desc&$top=${maxItems}`;
 
   if (unreadOnly) {
     path += '&$filter=isRead eq false';
@@ -238,49 +238,56 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
     throw error;
   }
 
-  return messages.map((m) => ({
-    id: m.id,
-    subject: m.subject,
-    from: m.from?.emailAddress?.address,
-    fromName: m.from?.emailAddress?.name,
-    received: m.receivedDateTime,
-    isRead: m.isRead,
-    preview: m.bodyPreview?.substring(0, 200),
-    hasAttachments: m.hasAttachments,
-    meetingMessageType: (m as unknown as Record<string, unknown>).meetingMessageType as string | undefined,
-  }));
+  return messages.map((m) => {
+    const raw = m as unknown as Record<string, unknown>;
+    return {
+      id: m.id,
+      subject: m.subject,
+      from: m.from?.emailAddress?.address,
+      fromName: m.from?.emailAddress?.name,
+      received: m.receivedDateTime,
+      isRead: m.isRead,
+      preview: m.bodyPreview?.substring(0, 200),
+      hasAttachments: m.hasAttachments,
+      // Graph returns meetingMessageType on eventMessage/eventMessageRequest resources
+      meetingMessageType: raw.meetingMessageType as string | undefined,
+    };
+  });
 }
 
 export async function readMail(params: z.infer<typeof readMailSchema>) {
   const { messageId } = params;
 
   const message = await graphRequest<Message>(
-    `/me/messages/${messageId}?$select=id,subject,from,toRecipients,receivedDateTime,body,hasAttachments,meetingMessageType`
+    `/me/messages/${messageId}`
   );
 
-  // For meeting requests, fetch the associated calendar event to get event ID and details
+  // For meeting requests, build meeting details from the eventMessage fields
   const msg = message as unknown as Record<string, unknown>;
+  const meetingMessageType = msg.meetingMessageType as string | undefined;
   let meetingDetails: Record<string, unknown> | undefined;
-  if (msg.meetingMessageType === 'meetingRequest' || msg.meetingMessageType === 'meetingTentativelyAccepted') {
+  if (meetingMessageType === 'meetingRequest') {
+    // eventMessageRequest includes startDateTime, endDateTime, location directly
+    const loc = msg.location as Record<string, unknown> | undefined;
+    meetingDetails = {
+      subject: msg.subject,
+      start: msg.startDateTime,
+      end: msg.endDateTime,
+      location: loc?.displayName,
+      is_online: !!msg.isOnlineMeeting,
+      organizer: ((msg.sender as Record<string, unknown>)?.emailAddress as Record<string, unknown>)?.address,
+    };
+    // Try to get the calendar event ID via $expand for RSVP
     try {
-      const event = await graphRequest<Record<string, unknown>>(
-        `/me/messages/${messageId}?$expand=microsoft.graph.eventMessage/event($select=id,subject,start,end,location,isOnlineMeeting,onlineMeetingUrl,organizer)`
+      const expanded = await graphRequest<Record<string, unknown>>(
+        `/me/messages/${messageId}?$expand=microsoft.graph.eventMessage/event($select=id)`
       );
-      const eventData = event.event as Record<string, unknown> | undefined;
-      if (eventData) {
-        meetingDetails = {
-          event_id: eventData.id,
-          subject: eventData.subject,
-          start: eventData.start,
-          end: eventData.end,
-          location: (eventData.location as Record<string, unknown>)?.displayName,
-          is_online: eventData.isOnlineMeeting,
-          meeting_url: eventData.onlineMeetingUrl,
-          organizer: ((eventData.organizer as Record<string, unknown>)?.emailAddress as Record<string, unknown>)?.address,
-        };
+      const eventData = expanded.event as Record<string, unknown> | undefined;
+      if (eventData?.id) {
+        meetingDetails.event_id = eventData.id;
       }
     } catch {
-      // Couldn't fetch event details — continue without them
+      // RSVP won't work without event_id, but details are still useful
     }
   }
 
@@ -294,7 +301,7 @@ export async function readMail(params: z.infer<typeof readMailSchema>) {
     body: message.body?.content,
     bodyType: message.body?.contentType,
     hasAttachments: message.hasAttachments,
-    meetingMessageType: msg.meetingMessageType as string | undefined,
+    meetingMessageType,
     meetingDetails,
   };
 }
