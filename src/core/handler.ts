@@ -85,6 +85,9 @@ export async function executeCommand(
       case 'calendar_delete':
         result = await calendar.deleteEvent(calendar.deleteEventSchema.parse(args));
         break;
+      case 'calendar_respond':
+        result = await calendar.respondEvent(calendar.respondEventSchema.parse(args));
+        break;
 
       // Tasks
       case 'tasks_list_lists':

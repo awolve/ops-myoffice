@@ -439,6 +439,27 @@ calendarCmd
     await runCommand('calendar_delete', { eventId: opts.id });
   });
 
+calendarCmd
+  .command('respond')
+  .description('Respond to a calendar event invite (accept, decline, tentative)')
+  .requiredOption('--id <eventId>', 'The event ID to respond to')
+  .option('--accept', 'Accept the invite')
+  .option('--decline', 'Decline the invite')
+  .option('--tentative', 'Tentatively accept the invite')
+  .option('--message <text>', 'Optional message to include with the response')
+  .action(async (opts) => {
+    const response = opts.accept ? 'accept' : opts.decline ? 'decline' : opts.tentative ? 'tentative' : null;
+    if (!response) {
+      console.error('Error: specify one of --accept, --decline, or --tentative');
+      process.exit(1);
+    }
+    await runCommand('calendar_respond', {
+      eventId: opts.id,
+      response,
+      message: opts.message,
+    });
+  });
+
 // Tasks commands
 const tasksCmd = program
   .command('tasks')

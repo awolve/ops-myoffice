@@ -67,6 +67,12 @@ export const deleteEventSchema = z.object({
   eventId: z.string().describe('The ID of the event to delete'),
 });
 
+export const respondEventSchema = z.object({
+  eventId: z.string().describe('The ID of the event to respond to'),
+  response: z.enum(['accept', 'decline', 'tentative']).describe('Response type'),
+  message: z.string().optional().describe('Optional message to include with the response'),
+});
+
 // Tool implementations
 export async function listCalendars() {
   const path = `/me/calendars?$select=id,name,color,isDefaultCalendar,canEdit,owner`;
@@ -214,4 +220,26 @@ export async function deleteEvent(params: z.infer<typeof deleteEventSchema>) {
   });
 
   return { success: true, message: 'Event deleted' };
+}
+
+export async function respondEvent(params: z.infer<typeof respondEventSchema>) {
+  const { eventId, response, message } = params;
+
+  const actionMap = {
+    accept: 'accept',
+    decline: 'decline',
+    tentative: 'tentativelyAccept',
+  } as const;
+
+  const action = actionMap[response];
+
+  await graphRequest(`/me/events/${eventId}/${action}`, {
+    method: 'POST',
+    body: {
+      comment: message ?? '',
+      sendResponse: true,
+    },
+  });
+
+  return { success: true, response, eventId, message: `Event ${response}ed` };
 }
