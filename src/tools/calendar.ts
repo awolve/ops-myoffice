@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { graphRequest, graphList } from '../utils/graph-client.js';
+import { warnIfHtmlBody } from '../utils/plain-text-body.js';
 
 // Types
 interface Calendar {
@@ -159,6 +160,8 @@ export async function createEvent(params: z.infer<typeof createEventSchema>) {
     calendarId,
   } = params;
 
+  warnIfHtmlBody(body, 'calendar create');
+
   const eventData = {
     subject,
     start: { dateTime: start, timeZone },
@@ -192,6 +195,8 @@ export async function createEvent(params: z.infer<typeof createEventSchema>) {
 
 export async function updateEvent(params: z.infer<typeof updateEventSchema>) {
   const { eventId, subject, start, end, location, body } = params;
+
+  warnIfHtmlBody(body, 'calendar update');
 
   const updates: Record<string, unknown> = {};
   if (subject) updates.subject = subject;

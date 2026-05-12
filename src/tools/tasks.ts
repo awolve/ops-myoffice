@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { graphRequest, graphList } from '../utils/graph-client.js';
+import { warnIfHtmlBody } from '../utils/plain-text-body.js';
 
 // Types
 interface TaskList {
@@ -101,6 +102,8 @@ export async function listTasks(params: z.infer<typeof listTasksSchema>) {
 export async function createTask(params: z.infer<typeof createTaskSchema>) {
   const { title, listId, dueDate, importance = 'normal', body } = params;
 
+  warnIfHtmlBody(body, 'tasks create');
+
   const actualListId = listId || (await getDefaultListId());
 
   const taskData: Record<string, unknown> = {
@@ -130,6 +133,8 @@ export async function createTask(params: z.infer<typeof createTaskSchema>) {
 
 export async function updateTask(params: z.infer<typeof updateTaskSchema>) {
   const { taskId, listId, title, dueDate, importance, body } = params;
+
+  warnIfHtmlBody(body, 'tasks update');
 
   const actualListId = listId || (await getDefaultListId());
 
