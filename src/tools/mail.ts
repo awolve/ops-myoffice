@@ -17,6 +17,9 @@ interface Message {
   subject: string;
   from?: EmailAddress;
   toRecipients?: EmailAddress[];
+  ccRecipients?: EmailAddress[];
+  bccRecipients?: EmailAddress[];
+  replyTo?: EmailAddress[];
   receivedDateTime: string;
   isRead: boolean;
   bodyPreview?: string;
@@ -297,6 +300,9 @@ export async function readMail(params: z.infer<typeof readMailSchema>) {
     from: message.from?.emailAddress?.address,
     fromName: message.from?.emailAddress?.name,
     to: message.toRecipients?.map((r) => r.emailAddress.address),
+    cc: message.ccRecipients?.map((r) => r.emailAddress.address) ?? [],
+    bcc: message.bccRecipients?.map((r) => r.emailAddress.address) ?? [],
+    replyTo: message.replyTo?.map((r) => r.emailAddress.address) ?? [],
     received: message.receivedDateTime,
     body: message.body?.content,
     bodyType: message.body?.contentType,
