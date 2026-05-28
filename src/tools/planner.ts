@@ -703,6 +703,11 @@ export async function createPlannerTask(params: z.infer<typeof createPlannerTask
     success: true,
     taskId: task.id,
     title: task.title,
+    planId: task.planId,
+    bucketId: task.bucketId,
+    dueDateTime: task.dueDateTime,
+    startDateTime: task.startDateTime,
+    percentComplete: task.percentComplete,
   };
 }
 
