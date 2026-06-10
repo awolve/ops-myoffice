@@ -211,6 +211,9 @@ export async function executeCommand(
       case 'chats_create':
         result = await chats.createChat(chats.createChatSchema.parse(args));
         break;
+      case 'chats_download_images':
+        result = await chats.downloadChatImages(chats.downloadChatImagesSchema.parse(args));
+        break;
 
       // Planner
       case 'planner_list_plans':

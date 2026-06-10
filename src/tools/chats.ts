@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { graphRequest, graphList } from '../utils/graph-client.js';
+import { graphRequest, graphList, graphDownload } from '../utils/graph-client.js';
 
 // Types
 interface ChatMember {
@@ -28,6 +28,13 @@ interface ChatMessageFrom {
   };
 }
 
+interface ChatMessageAttachment {
+  id: string;
+  contentType?: string;
+  contentUrl?: string;
+  name?: string;
+}
+
 interface ChatMessage {
   id: string;
   createdDateTime: string;
@@ -36,6 +43,12 @@ interface ChatMessage {
     contentType: string;
     content: string;
   };
+  attachments?: ChatMessageAttachment[];
+}
+
+interface HostedContent {
+  id: string;
+  contentType?: string;
 }
 
 // Schemas
@@ -51,6 +64,17 @@ export const listChatMessagesSchema = z.object({
 export const sendChatMessageSchema = z.object({
   chatId: z.string().describe('The ID of the chat'),
   content: z.string().describe('Message content (supports HTML)'),
+  images: z
+    .array(z.string())
+    .optional()
+    .describe('Paths to image files to embed inline in the message'),
+});
+
+export const downloadChatImagesSchema = z.object({
+  chatId: z.string().describe('The ID of the chat'),
+  messageId: z.string().optional().describe('Download images from this message only; omit to scan recent messages'),
+  maxItems: z.number().optional().describe('Number of recent messages to scan when no messageId is given. Default: 25'),
+  outputDir: z.string().describe('Directory to save downloaded images to'),
 });
 
 export const createChatSchema = z.object({
@@ -94,8 +118,156 @@ export async function listChatMessages(params: z.infer<typeof listChatMessagesSc
   }));
 }
 
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/bmp': '.bmp',
+};
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]+/g, '_');
+}
+
+// hostedContents listings often omit contentType — sniff the magic bytes
+function extFromBuffer(buffer: Buffer): string | null {
+  if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50) return '.png';
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8) return '.jpg';
+  if (buffer.length >= 3 && buffer.subarray(0, 3).toString('ascii') === 'GIF') return '.gif';
+  if (buffer.length >= 12 && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return '.webp';
+  return null;
+}
+
+export async function downloadChatImages(params: z.infer<typeof downloadChatImagesSchema>) {
+  const { chatId, messageId, maxItems = 25, outputDir } = params;
+  const { writeFile, mkdir } = await import('fs/promises');
+  const { join } = await import('path');
+
+  await mkdir(outputDir, { recursive: true });
+
+  let messages: ChatMessage[];
+  if (messageId) {
+    messages = [await graphRequest<ChatMessage>(`/chats/${chatId}/messages/${messageId}`)];
+  } else {
+    messages = await graphList<ChatMessage>(`/chats/${chatId}/messages?$top=${maxItems}`, { maxItems });
+  }
+
+  const files: Array<{
+    messageId: string;
+    from: string;
+    createdAt: string;
+    source: 'hostedContent' | 'attachment';
+    path: string;
+    bytes: number;
+  }> = [];
+  const errors: Array<{ messageId: string; error: string }> = [];
+
+  for (const m of messages) {
+    const from = m.from?.user?.displayName || m.from?.application?.displayName || 'Unknown';
+
+    // Inline pasted images (hosted contents)
+    try {
+      const hosted = await graphList<HostedContent>(
+        `/chats/${chatId}/messages/${m.id}/hostedContents`
+      );
+      let n = 0;
+      for (const hc of hosted) {
+        if (hc.contentType && !hc.contentType.startsWith('image/')) continue;
+        const buffer = await graphDownload(
+          `/chats/${chatId}/messages/${m.id}/hostedContents/${hc.id}/$value`
+        );
+        n += 1;
+        const ext = IMAGE_EXTENSIONS[hc.contentType || ''] || extFromBuffer(buffer) || '.png';
+        const outputPath = join(outputDir, `${m.id}-${n}${ext}`);
+        await writeFile(outputPath, buffer);
+        files.push({
+          messageId: m.id,
+          from,
+          createdAt: m.createdDateTime,
+          source: 'hostedContent',
+          path: outputPath,
+          bytes: buffer.length,
+        });
+      }
+    } catch (err) {
+      errors.push({ messageId: m.id, error: err instanceof Error ? err.message : String(err) });
+    }
+
+    // Image file attachments (shared via OneDrive/SharePoint reference)
+    for (const att of m.attachments ?? []) {
+      if (att.contentType !== 'reference' || !att.contentUrl) continue;
+      const name = att.name || '';
+      if (!/\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(name)) continue;
+      try {
+        const shareToken =
+          'u!' +
+          Buffer.from(att.contentUrl)
+            .toString('base64')
+            .replace(/=+$/, '')
+            .replace(/\//g, '_')
+            .replace(/\+/g, '-');
+        const buffer = await graphDownload(`/shares/${shareToken}/driveItem/content`);
+        const outputPath = join(outputDir, `${m.id}-${sanitizeFilename(name)}`);
+        await writeFile(outputPath, buffer);
+        files.push({
+          messageId: m.id,
+          from,
+          createdAt: m.createdDateTime,
+          source: 'attachment',
+          path: outputPath,
+          bytes: buffer.length,
+        });
+      } catch (err) {
+        errors.push({ messageId: m.id, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+  }
+
+  return {
+    success: true,
+    outputDir,
+    count: files.length,
+    files,
+    ...(errors.length > 0 ? { errors } : {}),
+  };
+}
+
+const MIME_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+};
+
 export async function sendChatMessage(params: z.infer<typeof sendChatMessageSchema>) {
-  const { chatId, content } = params;
+  const { chatId, content, images = [] } = params;
+
+  let html = content;
+  const hostedContents: Array<Record<string, string>> = [];
+
+  if (images.length > 0) {
+    const { readFile } = await import('fs/promises');
+    const { extname } = await import('path');
+
+    for (let i = 0; i < images.length; i++) {
+      const buffer = await readFile(images[i]);
+      const ext = extname(images[i]).toLowerCase();
+      const mimeType = MIME_TYPES[ext] || (extFromBuffer(buffer) ? MIME_TYPES[extFromBuffer(buffer)!] : undefined);
+      if (!mimeType) {
+        throw new Error(`Unsupported image type: ${images[i]} (expected png, jpg, gif, webp, or bmp)`);
+      }
+      const temporaryId = String(i + 1);
+      hostedContents.push({
+        '@microsoft.graph.temporaryId': temporaryId,
+        contentBytes: buffer.toString('base64'),
+        contentType: mimeType,
+      });
+      html += `<p><img src="../hostedContents/${temporaryId}/$value" alt="${sanitizeFilename(images[i].split('/').pop() || 'image')}"></p>`;
+    }
+  }
 
   const message = await graphRequest<ChatMessage>(
     `/chats/${chatId}/messages`,
@@ -104,8 +276,9 @@ export async function sendChatMessage(params: z.infer<typeof sendChatMessageSche
       body: {
         body: {
           contentType: 'html',
-          content,
+          content: html,
         },
+        ...(hostedContents.length > 0 ? { hostedContents } : {}),
       },
     }
   );
@@ -113,7 +286,7 @@ export async function sendChatMessage(params: z.infer<typeof sendChatMessageSche
   return {
     success: true,
     messageId: message.id,
-    message: 'Message sent',
+    message: images.length > 0 ? `Message sent with ${images.length} image(s)` : 'Message sent',
   };
 }
 

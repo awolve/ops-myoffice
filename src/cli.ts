@@ -940,10 +940,28 @@ chatsCmd
   .description('Send a message in a chat')
   .requiredOption('--chat-id <chatId>', 'Chat ID')
   .requiredOption('--content <content>', 'Message content')
+  .option('--image <paths...>', 'Image file(s) to embed inline in the message')
   .action(async (opts) => {
     await runCommand('chats_send', {
       chatId: opts.chatId,
       content: opts.content,
+      images: opts.image,
+    });
+  });
+
+chatsCmd
+  .command('download-images')
+  .description('Download images (pasted screenshots and image attachments) from chat messages')
+  .requiredOption('--chat-id <chatId>', 'Chat ID')
+  .option('--message-id <messageId>', 'Only download from this message')
+  .option('--limit <n>', 'Number of recent messages to scan', '25')
+  .requiredOption('--out <dir>', 'Output directory')
+  .action(async (opts) => {
+    await runCommand('chats_download_images', {
+      chatId: opts.chatId,
+      messageId: opts.messageId,
+      maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+      outputDir: opts.out,
     });
   });
 
