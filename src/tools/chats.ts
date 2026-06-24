@@ -32,7 +32,31 @@ interface ChatMessageAttachment {
   id: string;
   contentType?: string;
   contentUrl?: string;
+  content?: string | null; // for messageReference: a JSON string with the quote
   name?: string;
+}
+
+/**
+ * When a message is a quote-reply, Teams attaches a `messageReference`
+ * attachment whose `content` is a JSON string holding the quoted message's id,
+ * preview text, and sender. Pull that out so callers can read the quote.
+ */
+function extractQuotedMessage(attachments?: ChatMessageAttachment[]) {
+  const ref = attachments?.find((a) => a.contentType === 'messageReference' && a.content);
+  if (!ref?.content) return null;
+  try {
+    const c = JSON.parse(ref.content);
+    return {
+      messageId: String(c.messageId ?? ref.id ?? ''),
+      preview: String(c.messagePreview ?? ''),
+      sender:
+        c.messageSender?.user?.displayName ??
+        c.messageSender?.application?.displayName ??
+        null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 interface ChatMessage {
@@ -120,6 +144,9 @@ export async function listChatMessages(params: z.infer<typeof listChatMessagesSc
     fromType: m.from?.user ? 'user' : m.from?.application ? 'application' : 'unknown',
     content: m.body.content,
     contentType: m.body.contentType,
+    // When this is a quote-reply, the quoted message ({ messageId, preview,
+    // sender }); null otherwise.
+    quotedMessage: extractQuotedMessage(m.attachments),
   }));
 }
 
