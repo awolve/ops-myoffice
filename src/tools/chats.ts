@@ -113,6 +113,11 @@ export async function listChatMessages(params: z.infer<typeof listChatMessagesSc
     id: m.id,
     createdAt: m.createdDateTime,
     from: m.from?.user?.displayName || m.from?.application?.displayName || 'Unknown',
+    // Stable Azure AD object id of the sender (NOT spoofable, unlike the display
+    // name). Null for system/event messages with no `from`. Use this — not
+    // `from` — for any authorization decision.
+    fromId: m.from?.user?.id ?? m.from?.application?.id ?? null,
+    fromType: m.from?.user ? 'user' : m.from?.application ? 'application' : 'unknown',
     content: m.body.content,
     contentType: m.body.contentType,
   }));
@@ -292,8 +297,25 @@ export async function sendChatMessage(params: z.infer<typeof sendChatMessageSche
 
 interface User {
   id: string;
+  displayName?: string;
   mail?: string;
   userPrincipalName?: string;
+}
+
+export const whoamiSchema = z.object({});
+
+/**
+ * Identity of the authenticated user. `id` is the stable Azure AD object id —
+ * the value to compare against a chat message's `fromId` for authorization.
+ */
+export async function whoami(_params: z.infer<typeof whoamiSchema>) {
+  const me = await graphRequest<User>('/me?$select=id,displayName,mail,userPrincipalName');
+  return {
+    id: me.id,
+    displayName: me.displayName ?? null,
+    mail: me.mail ?? null,
+    userPrincipalName: me.userPrincipalName ?? null,
+  };
 }
 
 export async function createChat(params: z.infer<typeof createChatSchema>) {

@@ -122,6 +122,14 @@ program
     }
   });
 
+// Whoami command — authenticated user's stable identity (AAD object id, etc.)
+program
+  .command('whoami')
+  .description('Show the authenticated user (stable AAD object id, display name, email)')
+  .action(async () => {
+    await runCommand('whoami', {});
+  });
+
 // Debug command
 program
   .command('debug')
