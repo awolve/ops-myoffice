@@ -50,6 +50,9 @@ export async function executeCommand(
       case 'mail_reply':
         result = await mail.replyMail(mail.replyMailSchema.parse(args));
         break;
+      case 'mail_forward':
+        result = await mail.forwardMail(mail.forwardMailSchema.parse(args));
+        break;
       case 'mail_delete':
         result = await mail.deleteMail(mail.deleteMailSchema.parse(args));
         break;

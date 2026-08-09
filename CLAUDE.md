@@ -116,12 +116,13 @@ myoffice config show
 | `myoffice config set --client-id <id>` | Save client ID to config file |
 
 **Mail:**
-- `myoffice mail list [--folder <name>] [--unread]` - List emails (supports custom folder names)
+- `myoffice mail list [--folder <name>] [--limit <n>] [--skip <n>] [--unread]` - List emails (supports custom folder names; `--skip` pages through a folder)
 - `myoffice mail read <id>` - Read email
 - `myoffice mail search <query>` - Search emails
 - `myoffice mail send --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Send email with optional attachments
 - `myoffice mail draft --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Create draft email with optional attachments
 - `myoffice mail reply <id> --body <body> [--all]` - Reply to email
+- `myoffice mail forward --id <id> --to <addr...> [--body <comment>]` - Forward email, optionally with a comment above the forwarded message
 - `myoffice mail delete <id>` - Delete email
 - `myoffice mail mark <id> [--unread]` - Mark as read/unread
 - `myoffice mail move --id <id> --folder <name>` - Move email to folder (creates folder if needed)

@@ -43,6 +43,7 @@ interface Attachment {
 export const listMailsSchema = z.object({
   folder: z.string().optional().describe('Folder to list (inbox, sentitems, drafts, etc.). Default: inbox'),
   maxItems: z.number().optional().describe('Maximum number of emails to return. Default: 25'),
+  skip: z.number().optional().describe('Number of messages to skip, for paging. Default: 0'),
   unreadOnly: z.boolean().optional().describe('Only return unread emails'),
 });
 
@@ -82,6 +83,14 @@ export const replyMailSchema = z.object({
   body: z.string().describe('Reply body (HTML by default)'),
   isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
   replyAll: z.boolean().optional().describe('Reply to all recipients. Default: false'),
+  useSignature: z.boolean().optional().describe('Append email signature if configured. Default: false'),
+});
+
+export const forwardMailSchema = z.object({
+  messageId: z.string().describe('The ID of the message to forward'),
+  to: z.array(z.string()).describe('List of recipient email addresses'),
+  body: z.string().optional().describe('Comment to include above the forwarded message'),
+  isHtml: z.boolean().optional().describe('Whether the comment is HTML. Default: true'),
   useSignature: z.boolean().optional().describe('Append email signature if configured. Default: false'),
 });
 
@@ -208,7 +217,7 @@ export async function listFolders() {
 }
 
 export async function listMails(params: z.infer<typeof listMailsSchema>) {
-  const { folder = 'inbox', maxItems = 25, unreadOnly = false } = params;
+  const { folder = 'inbox', maxItems = 25, skip = 0, unreadOnly = false } = params;
 
   console.error(`[DEBUG] listMails called with folder: "${folder}"`);
 
@@ -225,6 +234,10 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
   console.error(`[DEBUG] Folder ID (encoded): ${encodedFolderId}`);
 
   let path = `/me/mailFolders/${encodedFolderId}/messages?$orderby=receivedDateTime desc&$top=${maxItems}`;
+
+  if (skip > 0) {
+    path += `&$skip=${skip}`;
+  }
 
   if (unreadOnly) {
     path += '&$filter=isRead eq false';
@@ -546,6 +559,36 @@ export async function replyMail(params: z.infer<typeof replyMailSchema>) {
   });
 
   return { success: true, message: replyAll ? 'Reply sent to all' : 'Reply sent' };
+}
+
+export async function forwardMail(params: z.infer<typeof forwardMailSchema>) {
+  const { messageId, to, body = '', isHtml = true, useSignature = false } = params;
+
+  let finalBody = body;
+  if (isHtml && finalBody && !looksLikeHtml(finalBody)) {
+    finalBody = textToHtml(finalBody);
+  }
+
+  if (useSignature) {
+    const signature = getSignature();
+    if (signature) {
+      finalBody = isHtml
+        ? `${finalBody}<br><br>${signature}`
+        : `${finalBody}\n\n--\n${signature}`;
+    }
+  }
+
+  await graphRequest(`/me/messages/${messageId}/forward`, {
+    method: 'POST',
+    body: {
+      comment: finalBody,
+      toRecipients: to.map((addr) => ({
+        emailAddress: { address: addr },
+      })),
+    },
+  });
+
+  return { success: true, message: `Email forwarded to ${to.join(', ')}` };
 }
 
 export async function deleteMail(params: z.infer<typeof deleteMailSchema>) {

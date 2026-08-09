@@ -192,7 +192,7 @@ configCmd
 // Mail commands
 const mailCmd = program
   .command('mail')
-  .description('Email operations (folders, list, read, send, draft, reply, search, delete, mark, move)');
+  .description('Email operations (folders, list, read, send, draft, reply, forward, search, delete, mark, move)');
 
 mailCmd
   .command('folders')
@@ -206,11 +206,13 @@ mailCmd
   .description('List emails from a folder')
   .option('--folder <name>', 'Folder name - use "inbox", "sentitems", "drafts" or custom folder name (default: inbox)')
   .option('--limit <n>', 'Maximum emails to return', '25')
+  .option('--skip <n>', 'Number of emails to skip, for paging')
   .option('--unread', 'Only show unread emails')
   .action(async (opts) => {
     await runCommand('mail_list', {
       folder: opts.folder,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+      skip: opts.skip ? parseInt(opts.skip, 10) : undefined,
       unreadOnly: opts.unread || undefined,
     });
   });
@@ -296,6 +298,24 @@ mailCmd
       messageId: opts.id,
       body: opts.body,
       replyAll: opts.all || false,
+      isHtml: opts.html !== false,
+      useSignature: opts.signature || false,
+    });
+  });
+
+mailCmd
+  .command('forward')
+  .description('Forward an email')
+  .requiredOption('--id <messageId>', 'The message ID to forward')
+  .requiredOption('--to <emails...>', 'Recipient emails')
+  .option('--body <body>', 'Comment to include above the forwarded message')
+  .option('--no-html', 'Send comment as plain text')
+  .option('--signature', 'Append signature')
+  .action(async (opts) => {
+    await runCommand('mail_forward', {
+      messageId: opts.id,
+      to: opts.to,
+      body: opts.body,
       isHtml: opts.html !== false,
       useSignature: opts.signature || false,
     });
