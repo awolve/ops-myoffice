@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { graphRequest, graphList, graphDownload } from '../utils/graph-client.js';
-import { getSignature } from '../utils/signature.js';
+import { getSignature, type SignatureStyle } from '../utils/signature.js';
 import { promises as fs } from 'fs';
 import { resolve } from 'path';
 
@@ -65,7 +65,8 @@ export const createDraftSchema = z.object({
   isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
   cc: z.array(z.string()).optional().describe('CC recipients'),
   bcc: z.array(z.string()).optional().describe('BCC recipients'),
-  useSignature: z.boolean().optional().describe('Append email signature if configured. Default: true'),
+  useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
+  signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: standard for new mail'),
   attachments: z.array(z.string()).optional().describe('List of file paths to attach'),
 });
 
@@ -77,6 +78,7 @@ export const updateDraftSchema = z.object({
   subject: z.string().optional().describe('Replace the subject'),
   body: z.string().optional().describe('Replace the body — omit to keep the existing body untouched'),
   isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
+  signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Signature to append to a replaced body. Default: none — the body you pass is used as-is'),
 });
 
 export const sendDraftSchema = z.object({
@@ -90,7 +92,8 @@ export const sendMailSchema = z.object({
   isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
   cc: z.array(z.string()).optional().describe('CC recipients'),
   bcc: z.array(z.string()).optional().describe('BCC recipients'),
-  useSignature: z.boolean().optional().describe('Append email signature if configured. Default: true'),
+  useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
+  signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: standard for new mail'),
   attachments: z.array(z.string()).optional().describe('List of file paths to attach'),
 });
 
@@ -99,7 +102,8 @@ export const replyMailSchema = z.object({
   body: z.string().describe('Reply body (HTML by default)'),
   isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
   replyAll: z.boolean().optional().describe('Reply to all recipients. Default: false'),
-  useSignature: z.boolean().optional().describe('Append email signature if configured. Default: false'),
+  useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
+  signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: minimal for replies and forwards'),
 });
 
 export const forwardMailSchema = z.object({
@@ -107,7 +111,8 @@ export const forwardMailSchema = z.object({
   to: z.array(z.string()).describe('List of recipient email addresses'),
   body: z.string().optional().describe('Comment to include above the forwarded message'),
   isHtml: z.boolean().optional().describe('Whether the comment is HTML. Default: true'),
-  useSignature: z.boolean().optional().describe('Append email signature if configured. Default: false'),
+  useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
+  signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: minimal for replies and forwards'),
 });
 
 export const deleteMailSchema = z.object({
@@ -374,6 +379,28 @@ export async function searchMail(params: z.infer<typeof searchMailSchema>) {
   }));
 }
 
+/**
+ * Which signature a message gets. `signatureStyle` wins; the older
+ * `useSignature: false` still means "none"; otherwise the caller's default
+ * applies — standard for new mail, minimal for replies and forwards, per
+ * handbook-context/team/brand/templates/email-signatures.mdx.
+ */
+function resolveSignatureStyle(
+  params: { signatureStyle?: SignatureStyle; useSignature?: boolean },
+  fallback: SignatureStyle
+): SignatureStyle {
+  if (params.signatureStyle) return params.signatureStyle;
+  if (params.useSignature === false) return 'none';
+  return fallback;
+}
+
+/** Append the chosen signature, or return the body untouched if there is none. */
+function appendSignature(body: string, isHtml: boolean, style: SignatureStyle): string {
+  const signature = getSignature(style);
+  if (!signature) return body;
+  return isHtml ? `${body}<br><br>${signature}` : `${body}\n\n--\n${signature}`;
+}
+
 // Convert plain text to HTML (escape special chars, convert newlines to <br>)
 function textToHtml(text: string): string {
   return text
@@ -441,7 +468,7 @@ async function prepareAttachments(filePaths: string[]): Promise<Array<{
 }
 
 export async function createDraft(params: z.infer<typeof createDraftSchema>) {
-  const { to, subject, body, isHtml = true, cc, bcc, useSignature = true, attachments: attachmentPaths } = params;
+  const { to, subject, body, isHtml = true, cc, bcc, attachments: attachmentPaths } = params;
 
   // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
@@ -449,15 +476,7 @@ export async function createDraft(params: z.infer<typeof createDraftSchema>) {
     finalBody = textToHtml(body);
   }
 
-  // Append signature if enabled and configured
-  if (useSignature) {
-    const signature = getSignature();
-    if (signature) {
-      finalBody = isHtml
-        ? `${finalBody}<br><br>${signature}`
-        : `${finalBody}\n\n--\n${signature}`;
-    }
-  }
+  finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'standard'));
 
   // Prepare attachments if provided
   const attachments = attachmentPaths && attachmentPaths.length > 0
@@ -532,7 +551,11 @@ export async function updateDraft(params: z.infer<typeof updateDraftSchema>) {
   const patch: Record<string, unknown> = {};
   if (subject !== undefined) patch.subject = subject;
   if (body !== undefined) {
-    const content = isHtml && !looksLikeHtml(body) ? textToHtml(body) : body;
+    // Replacing a body replaces the signature that was in it. Callers that
+    // rewrite a draft say which signature the new body should end with;
+    // `none` (the default) means the body they passed is already complete.
+    let content = isHtml && !looksLikeHtml(body) ? textToHtml(body) : body;
+    content = appendSignature(content, isHtml, resolveSignatureStyle(params, 'none'));
     patch.body = { contentType: isHtml ? 'HTML' : 'Text', content };
   }
   if (to) patch.toRecipients = recipients(to);
@@ -573,7 +596,7 @@ export async function sendDraft(params: z.infer<typeof sendDraftSchema>) {
 }
 
 export async function sendMail(params: z.infer<typeof sendMailSchema>) {
-  const { to, subject, body, isHtml = true, cc, bcc, useSignature = true, attachments: attachmentPaths } = params;
+  const { to, subject, body, isHtml = true, cc, bcc, attachments: attachmentPaths } = params;
 
   // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
@@ -581,15 +604,7 @@ export async function sendMail(params: z.infer<typeof sendMailSchema>) {
     finalBody = textToHtml(body);
   }
 
-  // Append signature if enabled and configured
-  if (useSignature) {
-    const signature = getSignature();
-    if (signature) {
-      finalBody = isHtml
-        ? `${finalBody}<br><br>${signature}`
-        : `${finalBody}\n\n--\n${signature}`;
-    }
-  }
+  finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'standard'));
 
   // Prepare attachments if provided
   const attachments = attachmentPaths && attachmentPaths.length > 0
@@ -631,7 +646,7 @@ export async function sendMail(params: z.infer<typeof sendMailSchema>) {
 }
 
 export async function replyMail(params: z.infer<typeof replyMailSchema>) {
-  const { messageId, body, isHtml = true, replyAll = false, useSignature = false } = params;
+  const { messageId, body, isHtml = true, replyAll = false } = params;
 
   // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
@@ -639,15 +654,7 @@ export async function replyMail(params: z.infer<typeof replyMailSchema>) {
     finalBody = textToHtml(body);
   }
 
-  // Append signature if enabled and configured
-  if (useSignature) {
-    const signature = getSignature();
-    if (signature) {
-      finalBody = isHtml
-        ? `${finalBody}<br><br>${signature}`
-        : `${finalBody}\n\n--\n${signature}`;
-    }
-  }
+  finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'minimal'));
 
   const endpoint = replyAll
     ? `/me/messages/${messageId}/replyAll`
@@ -669,21 +676,14 @@ export async function replyMail(params: z.infer<typeof replyMailSchema>) {
 }
 
 export async function forwardMail(params: z.infer<typeof forwardMailSchema>) {
-  const { messageId, to, body = '', isHtml = true, useSignature = false } = params;
+  const { messageId, to, body = '', isHtml = true } = params;
 
   let finalBody = body;
   if (isHtml && finalBody && !looksLikeHtml(finalBody)) {
     finalBody = textToHtml(finalBody);
   }
 
-  if (useSignature) {
-    const signature = getSignature();
-    if (signature) {
-      finalBody = isHtml
-        ? `${finalBody}<br><br>${signature}`
-        : `${finalBody}\n\n--\n${signature}`;
-    }
-  }
+  finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'minimal'));
 
   await graphRequest(`/me/messages/${messageId}/forward`, {
     method: 'POST',

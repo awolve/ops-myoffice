@@ -248,6 +248,7 @@ mailCmd
   .option('--attach <files...>', 'File paths to attach')
   .option('--no-html', 'Send as plain text')
   .option('--no-signature', 'Do not append signature')
+  .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
   .action(async (opts) => {
     await runCommand('mail_send', {
       to: opts.to,
@@ -258,6 +259,7 @@ mailCmd
       attachments: opts.attach,
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
+      signatureStyle: opts.signatureStyle,
     });
   });
 
@@ -272,6 +274,7 @@ mailCmd
   .option('--attach <files...>', 'File paths to attach')
   .option('--no-html', 'Create as plain text')
   .option('--no-signature', 'Do not append signature')
+  .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
   .action(async (opts) => {
     await runCommand('mail_draft', {
       to: opts.to,
@@ -282,6 +285,7 @@ mailCmd
       attachments: opts.attach,
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
+      signatureStyle: opts.signatureStyle,
     });
   });
 
@@ -295,6 +299,7 @@ mailCmd
   .option('--subject <subject>', 'Replace the subject')
   .option('--body <body>', 'Replace the body (omitted = existing body kept untouched)')
   .option('--no-html', 'Treat the body as plain text')
+  .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
   .action(async (opts) => {
     await runCommand('mail_draft_update', {
       messageId: opts.id,
@@ -304,6 +309,7 @@ mailCmd
       subject: opts.subject,
       body: opts.body,
       isHtml: opts.html !== false,
+      signatureStyle: opts.signatureStyle,
     });
   });
 
@@ -322,14 +328,16 @@ mailCmd
   .requiredOption('--body <body>', 'Reply body')
   .option('--all', 'Reply to all recipients')
   .option('--no-html', 'Send as plain text')
-  .option('--signature', 'Append signature')
+  .option('--no-signature', 'Do not append signature')
+  .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
   .action(async (opts) => {
     await runCommand('mail_reply', {
       messageId: opts.id,
       body: opts.body,
       replyAll: opts.all || false,
+      signatureStyle: opts.signatureStyle,
       isHtml: opts.html !== false,
-      useSignature: opts.signature || false,
+      useSignature: opts.signature !== false,
     });
   });
 
@@ -340,14 +348,16 @@ mailCmd
   .requiredOption('--to <emails...>', 'Recipient emails')
   .option('--body <body>', 'Comment to include above the forwarded message')
   .option('--no-html', 'Send comment as plain text')
-  .option('--signature', 'Append signature')
+  .option('--no-signature', 'Do not append signature')
+  .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
   .action(async (opts) => {
     await runCommand('mail_forward', {
       messageId: opts.id,
       to: opts.to,
       body: opts.body,
       isHtml: opts.html !== false,
-      useSignature: opts.signature || false,
+      useSignature: opts.signature !== false,
+      signatureStyle: opts.signatureStyle,
     });
   });
 
