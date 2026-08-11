@@ -21,7 +21,9 @@ interface Message {
   bccRecipients?: EmailAddress[];
   replyTo?: EmailAddress[];
   receivedDateTime: string;
+  lastModifiedDateTime?: string;
   isRead: boolean;
+  isDraft?: boolean;
   bodyPreview?: string;
   body?: {
     contentType: string;
@@ -65,6 +67,20 @@ export const createDraftSchema = z.object({
   bcc: z.array(z.string()).optional().describe('BCC recipients'),
   useSignature: z.boolean().optional().describe('Append email signature if configured. Default: true'),
   attachments: z.array(z.string()).optional().describe('List of file paths to attach'),
+});
+
+export const updateDraftSchema = z.object({
+  messageId: z.string().describe('The ID of the draft to update'),
+  to: z.array(z.string()).optional().describe('Replace the To recipients'),
+  cc: z.array(z.string()).optional().describe('Replace the CC recipients'),
+  bcc: z.array(z.string()).optional().describe('Replace the BCC recipients'),
+  subject: z.string().optional().describe('Replace the subject'),
+  body: z.string().optional().describe('Replace the body — omit to keep the existing body untouched'),
+  isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
+});
+
+export const sendDraftSchema = z.object({
+  messageId: z.string().describe('The ID of the draft to send as-is'),
 });
 
 export const sendMailSchema = z.object({
@@ -262,7 +278,15 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
       from: m.from?.emailAddress?.address,
       fromName: m.from?.emailAddress?.name,
       received: m.receivedDateTime,
+      // Drafts have no meaningful receivedDateTime — they were never received.
+      // lastModified is what "when" means for them.
+      lastModified: m.lastModifiedDateTime,
       isRead: m.isRead,
+      // A draft has never been sent: no sender, no thread, nothing to reply to.
+      // Callers need to tell it apart from received mail before offering actions.
+      isDraft: m.isDraft ?? false,
+      to: m.toRecipients?.map((r) => r.emailAddress.address) ?? [],
+      toNames: m.toRecipients?.map((r) => r.emailAddress.name || r.emailAddress.address) ?? [],
       preview: m.bodyPreview?.substring(0, 200),
       hasAttachments: m.hasAttachments,
       // Graph returns meetingMessageType on eventMessage/eventMessageRequest resources
@@ -317,6 +341,8 @@ export async function readMail(params: z.infer<typeof readMailSchema>) {
     bcc: message.bccRecipients?.map((r) => r.emailAddress.address) ?? [],
     replyTo: message.replyTo?.map((r) => r.emailAddress.address) ?? [],
     received: message.receivedDateTime,
+    lastModified: message.lastModifiedDateTime,
+    isDraft: message.isDraft ?? false,
     body: message.body?.content,
     bodyType: message.body?.contentType,
     hasAttachments: message.hasAttachments,
@@ -328,7 +354,7 @@ export async function readMail(params: z.infer<typeof readMailSchema>) {
 export async function searchMail(params: z.infer<typeof searchMailSchema>) {
   const { query, maxItems = 25 } = params;
 
-  const path = `/me/messages?$search="${encodeURIComponent(query)}"&$select=id,subject,from,receivedDateTime,isRead,bodyPreview&$top=${maxItems}`;
+  const path = `/me/messages?$search="${encodeURIComponent(query)}"&$select=id,subject,from,toRecipients,receivedDateTime,lastModifiedDateTime,isRead,isDraft,bodyPreview,hasAttachments&$top=${maxItems}`;
 
   const messages = await graphList<Message>(path, { maxItems });
 
@@ -336,9 +362,15 @@ export async function searchMail(params: z.infer<typeof searchMailSchema>) {
     id: m.id,
     subject: m.subject,
     from: m.from?.emailAddress?.address,
+    fromName: m.from?.emailAddress?.name,
     received: m.receivedDateTime,
+    lastModified: m.lastModifiedDateTime,
     isRead: m.isRead,
+    isDraft: m.isDraft ?? false,
+    to: m.toRecipients?.map((r) => r.emailAddress.address) ?? [],
+    toNames: m.toRecipients?.map((r) => r.emailAddress.name || r.emailAddress.address) ?? [],
     preview: m.bodyPreview?.substring(0, 200),
+    hasAttachments: m.hasAttachments,
   }));
 }
 
@@ -462,6 +494,81 @@ export async function createDraft(params: z.infer<typeof createDraftSchema>) {
     success: true,
     message: `Draft created for ${to.join(', ')}`,
     draftId: result.id,
+  };
+}
+
+/** Refuse to touch anything that is not an unsent draft. */
+async function requireDraft(messageId: string): Promise<Message> {
+  const message = await graphRequest<Message>(
+    `/me/messages/${messageId}?$select=id,subject,isDraft,toRecipients`
+  );
+  if (!message.isDraft) {
+    throw new Error(
+      'That message is not a draft — it has already been sent or received. Use mail reply/forward instead.'
+    );
+  }
+  return message;
+}
+
+/**
+ * Patch an existing draft in place. Only the fields given are replaced, so a
+ * caller that just fixes the recipients keeps the draft's original HTML body
+ * (and its signature markup) byte for byte.
+ */
+export async function updateDraft(params: z.infer<typeof updateDraftSchema>) {
+  const { messageId, to, cc, bcc, subject, body, isHtml = true } = params;
+
+  await requireDraft(messageId);
+
+  // Graph replaces a recipient collection wholesale. Passing an empty string
+  // (`--cc ""`) is how a caller clears one, since a flag with no value at all
+  // means "leave it alone".
+  const recipients = (addresses: string[]) =>
+    addresses
+      .map((a) => a.trim())
+      .filter(Boolean)
+      .map((address) => ({ emailAddress: { address } }));
+
+  const patch: Record<string, unknown> = {};
+  if (subject !== undefined) patch.subject = subject;
+  if (body !== undefined) {
+    const content = isHtml && !looksLikeHtml(body) ? textToHtml(body) : body;
+    patch.body = { contentType: isHtml ? 'HTML' : 'Text', content };
+  }
+  if (to) patch.toRecipients = recipients(to);
+  if (cc) patch.ccRecipients = recipients(cc);
+  if (bcc) patch.bccRecipients = recipients(bcc);
+
+  if (Object.keys(patch).length === 0) {
+    return { success: true, message: 'Nothing to update', messageId, updated: [] as string[] };
+  }
+
+  await graphRequest(`/me/messages/${messageId}`, { method: 'PATCH', body: patch });
+
+  return {
+    success: true,
+    message: `Draft updated (${Object.keys(patch).join(', ')})`,
+    messageId,
+    updated: Object.keys(patch),
+  };
+}
+
+/** Send an existing draft exactly as it stands — no body rewriting. */
+export async function sendDraft(params: z.infer<typeof sendDraftSchema>) {
+  const { messageId } = params;
+
+  const draft = await requireDraft(messageId);
+  const recipients = draft.toRecipients?.map((r) => r.emailAddress.address) ?? [];
+  if (recipients.length === 0) {
+    throw new Error('Draft has no recipients — add a To address before sending.');
+  }
+
+  await graphRequest(`/me/messages/${messageId}/send`, { method: 'POST' });
+
+  return {
+    success: true,
+    message: `Draft sent to ${recipients.join(', ')}`,
+    to: recipients,
   };
 }
 

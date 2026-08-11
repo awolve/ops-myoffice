@@ -47,6 +47,12 @@ export async function executeCommand(
       case 'mail_draft':
         result = await mail.createDraft(mail.createDraftSchema.parse(args));
         break;
+      case 'mail_draft_update':
+        result = await mail.updateDraft(mail.updateDraftSchema.parse(args));
+        break;
+      case 'mail_draft_send':
+        result = await mail.sendDraft(mail.sendDraftSchema.parse(args));
+        break;
       case 'mail_reply':
         result = await mail.replyMail(mail.replyMailSchema.parse(args));
         break;

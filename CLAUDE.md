@@ -116,11 +116,13 @@ myoffice config show
 | `myoffice config set --client-id <id>` | Save client ID to config file |
 
 **Mail:**
-- `myoffice mail list [--folder <name>] [--limit <n>] [--skip <n>] [--unread]` - List emails (supports custom folder names; `--skip` pages through a folder)
+- `myoffice mail list [--folder <name>] [--limit <n>] [--skip <n>] [--unread]` - List emails (supports custom folder names; `--skip` pages through a folder). Rows include `isDraft`, `to`/`toNames`, and `lastModified` — a draft has no sender, so `to` is what identifies it
 - `myoffice mail read <id>` - Read email
 - `myoffice mail search <query>` - Search emails
 - `myoffice mail send --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Send email with optional attachments
 - `myoffice mail draft --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Create draft email with optional attachments
+- `myoffice mail draft-update --id <id> [--to <addr...>] [--cc <addr...>] [--subject <subj>] [--body <body>]` - Update an existing draft in place; only the options given are replaced, so omitting `--body` keeps the draft's original HTML byte for byte
+- `myoffice mail draft-send --id <id>` - Send an existing draft exactly as it stands (no body rewriting). Both refuse anything that is not an unsent draft
 - `myoffice mail reply <id> --body <body> [--all]` - Reply to email
 - `myoffice mail forward --id <id> --to <addr...> [--body <comment>]` - Forward email, optionally with a comment above the forwarded message
 - `myoffice mail delete <id>` - Delete email

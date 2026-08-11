@@ -192,7 +192,7 @@ configCmd
 // Mail commands
 const mailCmd = program
   .command('mail')
-  .description('Email operations (folders, list, read, send, draft, reply, forward, search, delete, mark, move)');
+  .description('Email operations (folders, list, read, send, draft, draft-update, draft-send, reply, forward, search, delete, mark, move)');
 
 mailCmd
   .command('folders')
@@ -283,6 +283,36 @@ mailCmd
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
     });
+  });
+
+mailCmd
+  .command('draft-update')
+  .description('Update an existing draft in place (only the options given are replaced)')
+  .requiredOption('--id <messageId>', 'The draft message ID')
+  .option('--to <emails...>', 'Replace the To recipients')
+  .option('--cc <emails...>', 'Replace the CC recipients')
+  .option('--bcc <emails...>', 'Replace the BCC recipients')
+  .option('--subject <subject>', 'Replace the subject')
+  .option('--body <body>', 'Replace the body (omitted = existing body kept untouched)')
+  .option('--no-html', 'Treat the body as plain text')
+  .action(async (opts) => {
+    await runCommand('mail_draft_update', {
+      messageId: opts.id,
+      to: opts.to,
+      cc: opts.cc,
+      bcc: opts.bcc,
+      subject: opts.subject,
+      body: opts.body,
+      isHtml: opts.html !== false,
+    });
+  });
+
+mailCmd
+  .command('draft-send')
+  .description('Send an existing draft exactly as it stands')
+  .requiredOption('--id <messageId>', 'The draft message ID')
+  .action(async (opts) => {
+    await runCommand('mail_draft_send', { messageId: opts.id });
   });
 
 mailCmd

@@ -6,7 +6,7 @@ Unlike admin-focused M365 tools, this uses **delegated authentication** - users 
 
 ## Features
 
-- **Email** - List, read, search, send (with attachments), reply, delete, mark read/unread, move to folders
+- **Email** - List, read, search, send (with attachments), draft (create, update, send), reply, delete, mark read/unread, move to folders
 - **Calendar** - List, create, update, delete events (with Teams meetings)
 - **Tasks** - Manage Microsoft To Do lists and tasks
 - **Planner** - Access plans, buckets, and tasks
@@ -71,6 +71,12 @@ myoffice mail read <id>
 myoffice mail move --id <id> --folder "Captured"
 myoffice mail send --to user@example.com --subject "Hi" --body "Hello"
 myoffice mail send --to user@example.com --subject "Report" --body "See attached" --attach report.pdf  # With attachment
+
+# Drafts — list rows carry isDraft + to/toNames, so a draft is never mistaken for received mail
+myoffice mail list --folder drafts --json
+myoffice mail draft-update --id <id> --subject "New subject"          # body untouched, HTML preserved
+myoffice mail draft-update --id <id> --body "Rewritten body"          # only what you pass is replaced
+myoffice mail draft-send --id <id>                                    # sends the draft exactly as it stands
 
 # Calendar
 myoffice calendar list
