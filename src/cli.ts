@@ -246,6 +246,7 @@ mailCmd
   .option('--cc <emails...>', 'CC recipients')
   .option('--bcc <emails...>', 'BCC recipients')
   .option('--attach <files...>', 'File paths to attach')
+  .option('--attach-inline <files...>', 'Image files to embed in the body (referenced as cid:<basename-without-extension>)')
   .option('--no-html', 'Send as plain text')
   .option('--no-signature', 'Do not append signature')
   .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
@@ -257,6 +258,7 @@ mailCmd
       cc: opts.cc,
       bcc: opts.bcc,
       attachments: opts.attach,
+      inlineAttachments: opts.attachInline,
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
       signatureStyle: opts.signatureStyle,
@@ -272,6 +274,7 @@ mailCmd
   .option('--cc <emails...>', 'CC recipients')
   .option('--bcc <emails...>', 'BCC recipients')
   .option('--attach <files...>', 'File paths to attach')
+  .option('--attach-inline <files...>', 'Image files to embed in the body (referenced as cid:<basename-without-extension>)')
   .option('--no-html', 'Create as plain text')
   .option('--no-signature', 'Do not append signature')
   .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
@@ -283,6 +286,7 @@ mailCmd
       cc: opts.cc,
       bcc: opts.bcc,
       attachments: opts.attach,
+      inlineAttachments: opts.attachInline,
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
       signatureStyle: opts.signatureStyle,
@@ -298,6 +302,7 @@ mailCmd
   .option('--bcc <emails...>', 'Replace the BCC recipients')
   .option('--subject <subject>', 'Replace the subject')
   .option('--body <body>', 'Replace the body (omitted = existing body kept untouched)')
+  .option('--attach-inline <files...>', 'Image files newly embedded in the replaced body (referenced as cid:<basename-without-extension>)')
   .option('--no-html', 'Treat the body as plain text')
   .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
   .action(async (opts) => {
@@ -308,6 +313,7 @@ mailCmd
       bcc: opts.bcc,
       subject: opts.subject,
       body: opts.body,
+      inlineAttachments: opts.attachInline,
       isHtml: opts.html !== false,
       signatureStyle: opts.signatureStyle,
     });
@@ -327,6 +333,7 @@ mailCmd
   .requiredOption('--id <messageId>', 'The message ID to reply to')
   .requiredOption('--body <body>', 'Reply body')
   .option('--all', 'Reply to all recipients')
+  .option('--attach-inline <files...>', 'Image files to embed in the body (referenced as cid:<basename-without-extension>)')
   .option('--no-html', 'Send as plain text')
   .option('--no-signature', 'Do not append signature')
   .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
@@ -335,6 +342,7 @@ mailCmd
       messageId: opts.id,
       body: opts.body,
       replyAll: opts.all || false,
+      inlineAttachments: opts.attachInline,
       signatureStyle: opts.signatureStyle,
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
@@ -347,6 +355,7 @@ mailCmd
   .requiredOption('--id <messageId>', 'The message ID to forward')
   .requiredOption('--to <emails...>', 'Recipient emails')
   .option('--body <body>', 'Comment to include above the forwarded message')
+  .option('--attach-inline <files...>', 'Image files to embed in the body (referenced as cid:<basename-without-extension>)')
   .option('--no-html', 'Send comment as plain text')
   .option('--no-signature', 'Do not append signature')
   .option('--signature-style <style>', 'Signature to append: standard, minimal or none')
@@ -355,6 +364,7 @@ mailCmd
       messageId: opts.id,
       to: opts.to,
       body: opts.body,
+      inlineAttachments: opts.attachInline,
       isHtml: opts.html !== false,
       useSignature: opts.signature !== false,
       signatureStyle: opts.signatureStyle,

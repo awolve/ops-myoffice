@@ -38,6 +38,8 @@ interface Attachment {
   contentType: string;
   size: number;
   isInline: boolean;
+  /** Set on inline attachments; the body references it as src="cid:<contentId>". */
+  contentId?: string;
   '@odata.type': string;
 }
 
@@ -68,6 +70,7 @@ export const createDraftSchema = z.object({
   useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
   signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: standard for new mail'),
   attachments: z.array(z.string()).optional().describe('List of file paths to attach'),
+  inlineAttachments: z.array(z.string()).optional().describe('Image file paths to embed in the body. Each file is referenced from the HTML as src="cid:<basename-without-extension>"'),
 });
 
 export const updateDraftSchema = z.object({
@@ -79,6 +82,7 @@ export const updateDraftSchema = z.object({
   body: z.string().optional().describe('Replace the body — omit to keep the existing body untouched'),
   isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
   signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Signature to append to a replaced body. Default: none — the body you pass is used as-is'),
+  inlineAttachments: z.array(z.string()).optional().describe('Image file paths newly embedded in the replaced body. Each is referenced from the HTML as src="cid:<basename-without-extension>"'),
 });
 
 export const sendDraftSchema = z.object({
@@ -95,6 +99,7 @@ export const sendMailSchema = z.object({
   useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
   signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: standard for new mail'),
   attachments: z.array(z.string()).optional().describe('List of file paths to attach'),
+  inlineAttachments: z.array(z.string()).optional().describe('Image file paths to embed in the body. Each file is referenced from the HTML as src="cid:<basename-without-extension>"'),
 });
 
 export const replyMailSchema = z.object({
@@ -104,6 +109,7 @@ export const replyMailSchema = z.object({
   replyAll: z.boolean().optional().describe('Reply to all recipients. Default: false'),
   useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
   signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: minimal for replies and forwards'),
+  inlineAttachments: z.array(z.string()).optional().describe('Image file paths to embed in the body. Each file is referenced from the HTML as src="cid:<basename-without-extension>"'),
 });
 
 export const forwardMailSchema = z.object({
@@ -113,6 +119,7 @@ export const forwardMailSchema = z.object({
   isHtml: z.boolean().optional().describe('Whether the comment is HTML. Default: true'),
   useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
   signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: minimal for replies and forwards'),
+  inlineAttachments: z.array(z.string()).optional().describe('Image file paths to embed in the comment. Each file is referenced from the HTML as src="cid:<basename-without-extension>"'),
 });
 
 export const deleteMailSchema = z.object({
@@ -415,14 +422,27 @@ function looksLikeHtml(text: string): boolean {
   return /<[a-z][\s\S]*>/i.test(text);
 }
 
-// Helper: Prepare attachments from file paths
-async function prepareAttachments(filePaths: string[]): Promise<Array<{
+interface GraphAttachment {
   '@odata.type': string;
   name: string;
   contentType: string;
   contentBytes: string;
-}>> {
-  const attachments = [];
+  /** Set for inline images: the `cid:` value the HTML body references. */
+  contentId?: string;
+  isInline?: boolean;
+}
+
+/**
+ * Prepare attachments from file paths.
+ *
+ * `inline` marks them as embedded images: each file's basename without its
+ * extension becomes the Content-ID, so a body referencing `cid:cortex-inline-1`
+ * is satisfied by a file named `cortex-inline-1.png`. That keeps the CLI
+ * surface a plain list of paths rather than a path:cid syntax nobody can
+ * remember the escaping rules for.
+ */
+async function prepareAttachments(filePaths: string[], inline = false): Promise<GraphAttachment[]> {
+  const attachments: GraphAttachment[] = [];
 
   for (const filePath of filePaths) {
     const absolutePath = resolve(filePath);
@@ -456,19 +476,36 @@ async function prepareAttachments(filePaths: string[]): Promise<Array<{
 
     const contentType = mimeTypes[ext || ''] || 'application/octet-stream';
 
-    attachments.push({
+    const attachment: GraphAttachment = {
       '@odata.type': '#microsoft.graph.fileAttachment',
       name: fileName,
       contentType,
       contentBytes: base64Content,
-    });
+    };
+    if (inline) {
+      attachment.contentId = fileName.replace(/\.[^.]+$/, '');
+      attachment.isInline = true;
+    }
+    attachments.push(attachment);
   }
 
   return attachments;
 }
 
+/** Both attachment lists for one message, or undefined when there are none. */
+async function collectAttachments(
+  paths: string[] | undefined,
+  inlinePaths: string[] | undefined
+): Promise<GraphAttachment[] | undefined> {
+  const all = [
+    ...(paths?.length ? await prepareAttachments(paths) : []),
+    ...(inlinePaths?.length ? await prepareAttachments(inlinePaths, true) : []),
+  ];
+  return all.length > 0 ? all : undefined;
+}
+
 export async function createDraft(params: z.infer<typeof createDraftSchema>) {
-  const { to, subject, body, isHtml = true, cc, bcc, attachments: attachmentPaths } = params;
+  const { to, subject, body, isHtml = true, cc, bcc, attachments: attachmentPaths, inlineAttachments: inlineAttachmentPaths } = params;
 
   // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
@@ -478,10 +515,8 @@ export async function createDraft(params: z.infer<typeof createDraftSchema>) {
 
   finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'standard'));
 
-  // Prepare attachments if provided
-  const attachments = attachmentPaths && attachmentPaths.length > 0
-    ? await prepareAttachments(attachmentPaths)
-    : undefined;
+  // Regular attachments plus any inline images the body references by cid:.
+  const attachments = await collectAttachments(attachmentPaths, inlineAttachmentPaths);
 
   const message: Record<string, unknown> = {
     subject,
@@ -535,7 +570,7 @@ async function requireDraft(messageId: string): Promise<Message> {
  * (and its signature markup) byte for byte.
  */
 export async function updateDraft(params: z.infer<typeof updateDraftSchema>) {
-  const { messageId, to, cc, bcc, subject, body, isHtml = true } = params;
+  const { messageId, to, cc, bcc, subject, body, isHtml = true, inlineAttachments: inlineAttachmentPaths } = params;
 
   await requireDraft(messageId);
 
@@ -562,11 +597,28 @@ export async function updateDraft(params: z.infer<typeof updateDraftSchema>) {
   if (cc) patch.ccRecipients = recipients(cc);
   if (bcc) patch.bccRecipients = recipients(bcc);
 
-  if (Object.keys(patch).length === 0) {
+  const inlineAttachments = await collectAttachments(undefined, inlineAttachmentPaths);
+
+  if (Object.keys(patch).length === 0 && !inlineAttachments) {
     return { success: true, message: 'Nothing to update', messageId, updated: [] as string[] };
   }
 
-  await graphRequest(`/me/messages/${messageId}`, { method: 'PATCH', body: patch });
+  if (Object.keys(patch).length > 0) {
+    await graphRequest(`/me/messages/${messageId}`, { method: 'PATCH', body: patch });
+  }
+
+  // Images newly embedded in the rewritten body. Only ever the ones the caller
+  // just added — a body that already references cid: keeps pointing at the
+  // attachments the draft holds, so re-saving an untouched draft adds nothing.
+  if (inlineAttachments) {
+    for (const attachment of inlineAttachments) {
+      await graphRequest(`/me/messages/${messageId}/attachments`, {
+        method: 'POST',
+        body: attachment,
+      });
+    }
+    patch.attachments = inlineAttachments.length;
+  }
 
   return {
     success: true,
@@ -596,7 +648,7 @@ export async function sendDraft(params: z.infer<typeof sendDraftSchema>) {
 }
 
 export async function sendMail(params: z.infer<typeof sendMailSchema>) {
-  const { to, subject, body, isHtml = true, cc, bcc, attachments: attachmentPaths } = params;
+  const { to, subject, body, isHtml = true, cc, bcc, attachments: attachmentPaths, inlineAttachments: inlineAttachmentPaths } = params;
 
   // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
@@ -606,10 +658,8 @@ export async function sendMail(params: z.infer<typeof sendMailSchema>) {
 
   finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'standard'));
 
-  // Prepare attachments if provided
-  const attachments = attachmentPaths && attachmentPaths.length > 0
-    ? await prepareAttachments(attachmentPaths)
-    : undefined;
+  // Regular attachments plus any inline images the body references by cid:.
+  const attachments = await collectAttachments(attachmentPaths, inlineAttachmentPaths);
 
   const messageContent: Record<string, unknown> = {
     subject,
@@ -645,8 +695,79 @@ export async function sendMail(params: z.infer<typeof sendMailSchema>) {
   return { success: true, message: `Email sent to ${to.join(', ')}` };
 }
 
+/**
+ * Put a fragment at the top of an HTML document's body.
+ *
+ * Graph's createReply hands back a whole document — `<html><head>…<body>quoted
+ * original</body></html>`. Concatenating in front of that would place the reply
+ * outside the document root, which clients render inconsistently and Outlook
+ * sometimes drops. A document with no <body> (or a bare fragment) just gets the
+ * text in front, which is right for that shape.
+ */
+export function insertAtTopOfBody(documentHtml: string, fragment: string): string {
+  const open = /<body[^>]*>/i.exec(documentHtml);
+  if (!open) return `${fragment}${documentHtml}`;
+  const at = open.index + open[0].length;
+  return documentHtml.slice(0, at) + fragment + documentHtml.slice(at);
+}
+
+/**
+ * Send a reply or forward that carries attachments, via a draft.
+ *
+ * The direct `/reply`, `/replyAll` and `/forward` endpoints take only a body or
+ * comment — attachments are not among the writeable properties, and Microsoft's
+ * own guidance is to "create a draft to reply to an existing message and send it
+ * later" when you need them. So: createReply/createReplyAll/createForward gives
+ * us a draft that already holds the quoted thread, we prepend our body to it,
+ * POST each attachment, and send.
+ *
+ * Used only when there are attachments. The direct endpoints stay the path for
+ * a plain reply — they are one round trip instead of four, and they are what
+ * every existing caller has been exercising in production. Two paths is a wart;
+ * the alternative was re-routing every reply Cortex sends through new code to
+ * serve the minority that carries an image.
+ */
+async function sendViaDraft(
+  messageId: string,
+  kind: 'createReply' | 'createReplyAll' | 'createForward',
+  bodyHtml: string,
+  isHtml: boolean,
+  attachments: GraphAttachment[],
+  toRecipients?: string[]
+): Promise<void> {
+  const draft = await graphRequest<Message>(`/me/messages/${messageId}/${kind}`, {
+    method: 'POST',
+  });
+  if (!draft.id) throw new Error('Graph did not return a draft to reply with.');
+
+  // The draft arrives holding the quoted original. Our text goes above it,
+  // which is where a reply belongs and where every mail client puts it —
+  // inside the returned document's <body>, not before its <html>.
+  const quoted = draft.body?.content ?? '';
+  const content = isHtml ? insertAtTopOfBody(quoted, bodyHtml) : `${bodyHtml}\n\n${quoted}`;
+
+  const patch: Record<string, unknown> = {
+    body: { contentType: isHtml ? 'HTML' : 'Text', content },
+  };
+  if (toRecipients?.length) {
+    patch.toRecipients = toRecipients.map((addr) => ({ emailAddress: { address: addr } }));
+  }
+  await graphRequest(`/me/messages/${draft.id}`, { method: 'PATCH', body: patch });
+
+  // One at a time: Graph's attachments collection is a navigation property, so
+  // each is its own POST rather than an array on the message.
+  for (const attachment of attachments) {
+    await graphRequest(`/me/messages/${draft.id}/attachments`, {
+      method: 'POST',
+      body: attachment,
+    });
+  }
+
+  await graphRequest(`/me/messages/${draft.id}/send`, { method: 'POST' });
+}
+
 export async function replyMail(params: z.infer<typeof replyMailSchema>) {
-  const { messageId, body, isHtml = true, replyAll = false } = params;
+  const { messageId, body, isHtml = true, replyAll = false, inlineAttachments: inlineAttachmentPaths } = params;
 
   // Prepare body - convert plain text to HTML if needed
   let finalBody = body;
@@ -655,6 +776,18 @@ export async function replyMail(params: z.infer<typeof replyMailSchema>) {
   }
 
   finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'minimal'));
+
+  const attachments = await collectAttachments(undefined, inlineAttachmentPaths);
+  if (attachments) {
+    await sendViaDraft(
+      messageId,
+      replyAll ? 'createReplyAll' : 'createReply',
+      finalBody,
+      isHtml,
+      attachments
+    );
+    return { success: true, message: replyAll ? 'Reply sent to all' : 'Reply sent' };
+  }
 
   const endpoint = replyAll
     ? `/me/messages/${messageId}/replyAll`
@@ -676,7 +809,7 @@ export async function replyMail(params: z.infer<typeof replyMailSchema>) {
 }
 
 export async function forwardMail(params: z.infer<typeof forwardMailSchema>) {
-  const { messageId, to, body = '', isHtml = true } = params;
+  const { messageId, to, body = '', isHtml = true, inlineAttachments: inlineAttachmentPaths } = params;
 
   let finalBody = body;
   if (isHtml && finalBody && !looksLikeHtml(finalBody)) {
@@ -684,6 +817,12 @@ export async function forwardMail(params: z.infer<typeof forwardMailSchema>) {
   }
 
   finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'minimal'));
+
+  const attachments = await collectAttachments(undefined, inlineAttachmentPaths);
+  if (attachments) {
+    await sendViaDraft(messageId, 'createForward', finalBody, isHtml, attachments, to);
+    return { success: true, message: `Email forwarded to ${to.join(', ')}` };
+  }
 
   await graphRequest(`/me/messages/${messageId}/forward`, {
     method: 'POST',
@@ -723,7 +862,10 @@ export async function listAttachments(params: z.infer<typeof listAttachmentsSche
   const { messageId } = params;
 
   const attachments = await graphList<Attachment>(
-    `/me/messages/${messageId}/attachments?$select=id,name,contentType,size,isInline`
+    // contentId lives on the derived fileAttachment type, not on the base
+    // attachment, so it needs the OData type cast — asking for a bare
+    // `contentId` is a 400.
+    `/me/messages/${messageId}/attachments?$select=id,name,contentType,size,isInline,microsoft.graph.fileAttachment/contentId`
   );
 
   return attachments.map((a) => ({
@@ -732,6 +874,10 @@ export async function listAttachments(params: z.infer<typeof listAttachmentsSche
     contentType: a.contentType,
     size: a.size,
     isInline: a.isInline,
+    // An inline image is referenced from the body as src="cid:<contentId>".
+    // Without this the reference cannot be resolved to an attachment at all,
+    // and every embedded image renders as a broken-image icon.
+    contentId: a.contentId,
   }));
 }
 
