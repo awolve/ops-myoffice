@@ -382,6 +382,44 @@ async function getUserDetails(userId: string): Promise<GraphUser | null> {
   }
 }
 
+export interface ResolvedAssignee {
+  userId: string;
+  displayName?: string;
+  email?: string;
+}
+
+/**
+ * Resolve assignee object ids to names.
+ *
+ * `my-tasks` has always done this; `tasks` and `task` returned bare AAD object
+ * ids, so anything listing a plan showed a GUID where a person's name belongs
+ * and had no way to look one up. Same lookup, same session cache — a plan with
+ * five distinct assignees costs five calls once.
+ *
+ * Emitted as a NEW `assignees` field rather than by changing `assignedTo`:
+ * every consumer runs `npx @awolve/myoffice@latest`, so a shape change reaches
+ * every machine before the code that reads it does. `assignedTo` keeps its
+ * string-id shape.
+ */
+async function resolveAssignees(userIds: string[]): Promise<Map<string, ResolvedAssignee>> {
+  const resolved = new Map<string, ResolvedAssignee>();
+
+  await Promise.all(
+    [...new Set(userIds)].map(async (userId) => {
+      const details = await getUserDetails(userId);
+      // An unresolvable id (deleted or external user) still gets an entry, so
+      // callers can tell "nobody knows who" from "nobody assigned".
+      resolved.set(userId, {
+        userId,
+        displayName: details?.displayName,
+        email: details?.mail || details?.userPrincipalName,
+      });
+    }),
+  );
+
+  return resolved;
+}
+
 // ============================================================================
 // Plans (Read-Only)
 // ============================================================================
@@ -577,9 +615,15 @@ export async function listMyTasks(params: z.infer<typeof listMyTasksSchema>) {
     priority: PRIORITY_REVERSE[t.priority] || 'medium',
     dueDateTime: t.dueDateTime,
     startDateTime: t.startDateTime,
+    // Unchanged, mixed-shape by history: an object when the lookup succeeded,
+    // a bare id when it didn't. `assignees` below is the shape to read.
     assignedTo: Object.keys(t.assignments || {}).map((uid) => {
       const u = userNames.get(uid);
       return u ? { userId: uid, displayName: u.displayName, email: u.email } : uid;
+    }),
+    assignees: Object.keys(t.assignments || {}).map((uid) => {
+      const u = userNames.get(uid);
+      return { userId: uid, displayName: u?.displayName, email: u?.email };
     }),
     createdDateTime: t.createdDateTime,
     completedDateTime: t.completedDateTime,
@@ -600,21 +644,29 @@ export async function listPlannerTasks(params: z.infer<typeof listPlannerTasksSc
     tasks = tasks.filter((t) => t.bucketId === bucketId);
   }
 
-  return tasks.map((t) => ({
-    id: t.id,
-    title: t.title,
-    bucketId: t.bucketId,
-    progress: progressToSemantic(t.percentComplete),
-    percentComplete: t.percentComplete,
-    priority: PRIORITY_REVERSE[t.priority] || 'medium',
-    dueDateTime: t.dueDateTime,
-    startDateTime: t.startDateTime,
-    assignedTo: Object.keys(t.assignments || {}),
-    createdDateTime: t.createdDateTime,
-    createdBy: t.createdBy?.user,
-    completedDateTime: t.completedDateTime,
-    completedBy: t.completedBy?.user,
-  }));
+  const assignees = await resolveAssignees(
+    tasks.flatMap((t) => Object.keys(t.assignments || {})),
+  );
+
+  return tasks.map((t) => {
+    const userIds = Object.keys(t.assignments || {});
+    return {
+      id: t.id,
+      title: t.title,
+      bucketId: t.bucketId,
+      progress: progressToSemantic(t.percentComplete),
+      percentComplete: t.percentComplete,
+      priority: PRIORITY_REVERSE[t.priority] || 'medium',
+      dueDateTime: t.dueDateTime,
+      startDateTime: t.startDateTime,
+      assignedTo: userIds,
+      assignees: userIds.map((uid) => assignees.get(uid) ?? { userId: uid }),
+      createdDateTime: t.createdDateTime,
+      createdBy: t.createdBy?.user,
+      completedDateTime: t.completedDateTime,
+      completedBy: t.completedBy?.user,
+    };
+  });
 }
 
 export async function getPlannerTask(params: z.infer<typeof getPlannerTaskSchema>) {
@@ -648,6 +700,9 @@ export async function getPlannerTask(params: z.infer<typeof getPlannerTaskSchema
     }
   }
 
+  const userIds = Object.keys(task.assignments || {});
+  const assignees = await resolveAssignees(userIds);
+
   return {
     id: task.id,
     planId: task.planId,
@@ -658,7 +713,8 @@ export async function getPlannerTask(params: z.infer<typeof getPlannerTaskSchema
     priority: PRIORITY_REVERSE[task.priority] || 'medium',
     dueDateTime: task.dueDateTime,
     startDateTime: task.startDateTime,
-    assignedTo: Object.keys(task.assignments || {}),
+    assignedTo: userIds,
+    assignees: userIds.map((uid) => assignees.get(uid) ?? { userId: uid }),
     createdDateTime: task.createdDateTime,
     createdBy: createdByUser,
     completedDateTime: task.completedDateTime,

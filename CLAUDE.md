@@ -307,6 +307,16 @@ Microsoft Planner provides team-oriented task management. Key concepts:
 **Important notes:**
 - All updates/deletes require ETags (handled internally - no user action needed)
 - Task assignments accept email addresses (resolved to user IDs automatically)
+- **Read assignees from `assignees`, not `assignedTo`** (v2.12.0+). `tasks`, `task`
+  and `my-tasks` all return `assignees: [{userId, displayName, email}]`, resolved
+  via `/users/{id}` and cached per session. `assignedTo` is kept for backward
+  compatibility and is inconsistent by history: bare id strings from `tasks`/`task`,
+  objects-or-strings from `my-tasks`. It was not changed in place because every
+  consumer runs `npx @awolve/myoffice@latest`, so a shape change lands on every
+  machine before the code that reads it does.
+- A `assignees` entry always has `userId`; `displayName`/`email` are absent when the
+  user cannot be looked up (deleted or external). That distinguishes "unknown who"
+  from "unassigned" — do not render the raw `userId` as if it were a name.
 - Progress values: `notStarted`, `inProgress`, `completed`
 - Priority values: `urgent`, `important`, `medium`, `low`
 - Plans cannot be created via Graph API (would require M365 Group creation)
