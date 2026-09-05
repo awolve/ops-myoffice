@@ -6,7 +6,7 @@ Unlike admin-focused M365 tools, this uses **delegated authentication** - users 
 
 ## Features
 
-- **Email** - List, read, search, send (with attachments), draft (create, update, send), reply, delete, mark read/unread, move to folders
+- **Email** - List, read, search, send (with attachments), draft (create, update, send), reply, delete, mark read/unread, move to folders; list/read/search a shared mailbox with `--mailbox <address>`
 - **Calendar** - List, create, update, delete events (with Teams meetings)
 - **Tasks** - Manage Microsoft To Do lists and tasks
 - **Planner** - Access plans, buckets, and tasks
@@ -57,6 +57,8 @@ myoffice login
 
 Opens a browser for device code authentication. Token is cached at `~/.config/myoffice-mcp/msal-cache.json`.
 
+After upgrading to a version that adds a Graph scope (v2.12.0 added `Mail.ReadWrite.Shared`), run `myoffice login` again once. Until you do, every command fails with `AADSTS65001`.
+
 ## CLI Usage
 
 ```bash
@@ -77,6 +79,11 @@ myoffice mail list --folder drafts --json
 myoffice mail draft-update --id <id> --subject "New subject"          # body untouched, HTML preserved
 myoffice mail draft-update --id <id> --body "Rewritten body"          # only what you pass is replaced
 myoffice mail draft-send --id <id>                                    # sends the draft exactly as it stands
+
+# Shared mailboxes you have Full Access to (read-only: list, read, search)
+myoffice mail list --mailbox test@awolve.ai --json
+myoffice mail search --mailbox test@awolve.ai --query "to:test+abc@awolve.ai" --json   # exact plus-address
+myoffice mail read --id <id> --mailbox test@awolve.ai
 
 # Calendar
 myoffice calendar list
@@ -115,7 +122,7 @@ Run `myoffice --help` for all commands.
 3. Note the **Application (client) ID**
 4. Go to **Authentication** > Enable **Allow public client flows** = Yes
 5. Go to **API permissions** > Add Microsoft Graph delegated permissions:
-   - `Mail.ReadWrite`, `Mail.Send`
+   - `Mail.ReadWrite`, `Mail.ReadWrite.Shared`, `Mail.Send`
    - `Calendars.ReadWrite`
    - `Tasks.ReadWrite`
    - `Files.ReadWrite`, `Sites.Read.All`

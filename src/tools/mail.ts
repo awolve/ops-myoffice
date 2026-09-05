@@ -43,8 +43,25 @@ interface Attachment {
   '@odata.type': string;
 }
 
+/**
+ * Graph path prefix for a mailbox. Undefined means the signed-in user's own
+ * mailbox (`/me`); an address means a mailbox the user has been granted
+ * access to, e.g. a shared mailbox (`/users/<address>`, spec 013). Requires
+ * the Mail.ReadWrite.Shared scope for any mailbox that is not the user's own.
+ */
+export function mailboxRoot(mailbox?: string): string {
+  return mailbox ? `/users/${encodeURIComponent(mailbox)}` : '/me';
+}
+
+const mailboxField = z
+  .string()
+  .email()
+  .optional()
+  .describe('Read from this mailbox instead of your own (shared mailbox address). Requires Full Access on the mailbox');
+
 // Schemas
 export const listMailsSchema = z.object({
+  mailbox: mailboxField,
   folder: z.string().optional().describe('Folder to list (inbox, sentitems, drafts, etc.). Default: inbox'),
   maxItems: z.number().optional().describe('Maximum number of emails to return. Default: 25'),
   skip: z.number().optional().describe('Number of messages to skip, for paging. Default: 0'),
@@ -52,10 +69,12 @@ export const listMailsSchema = z.object({
 });
 
 export const readMailSchema = z.object({
+  mailbox: mailboxField,
   messageId: z.string().describe('The ID of the message to read'),
 });
 
 export const searchMailSchema = z.object({
+  mailbox: mailboxField,
   query: z.string().describe('Search query (searches subject, body, and participants)'),
   maxItems: z.number().optional().describe('Maximum number of results. Default: 25'),
 });
@@ -147,7 +166,7 @@ export const moveMailSchema = z.object({
 });
 
 // Helper: Get folder ID by name (searches if not a well-known folder)
-async function getFolderIdByName(folderName: string): Promise<string | null> {
+async function getFolderIdByName(folderName: string, mailbox?: string): Promise<string | null> {
   interface MailFolder {
     id: string;
     displayName: string;
@@ -168,7 +187,7 @@ async function getFolderIdByName(folderName: string): Promise<string | null> {
   // List all folders to help debug
   console.error('[DEBUG] Fetching all mail folders...');
   const allFolders = await graphList<MailFolder>(
-    `/me/mailFolders?$select=id,displayName,parentFolderId&$top=100`
+    `${mailboxRoot(mailbox)}/mailFolders?$select=id,displayName,parentFolderId&$top=100`
   );
 
   console.error(`[DEBUG] Found ${allFolders.length} folders:`);
@@ -245,12 +264,12 @@ export async function listFolders() {
 }
 
 export async function listMails(params: z.infer<typeof listMailsSchema>) {
-  const { folder = 'inbox', maxItems = 25, skip = 0, unreadOnly = false } = params;
+  const { mailbox, folder = 'inbox', maxItems = 25, skip = 0, unreadOnly = false } = params;
 
-  console.error(`[DEBUG] listMails called with folder: "${folder}"`);
+  console.error(`[DEBUG] listMails called with folder: "${folder}"${mailbox ? ` in mailbox ${mailbox}` : ''}`);
 
   // Resolve folder name to folder ID
-  const folderId = await getFolderIdByName(folder);
+  const folderId = await getFolderIdByName(folder, mailbox);
 
   if (!folderId) {
     throw new Error(`Folder not found: ${folder}`);
@@ -261,7 +280,7 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
   console.error(`[DEBUG] Folder ID (raw): ${folderId}`);
   console.error(`[DEBUG] Folder ID (encoded): ${encodedFolderId}`);
 
-  let path = `/me/mailFolders/${encodedFolderId}/messages?$orderby=receivedDateTime desc&$top=${maxItems}`;
+  let path = `${mailboxRoot(mailbox)}/mailFolders/${encodedFolderId}/messages?$orderby=receivedDateTime desc&$top=${maxItems}`;
 
   if (skip > 0) {
     path += `&$skip=${skip}`;
@@ -308,10 +327,11 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
 }
 
 export async function readMail(params: z.infer<typeof readMailSchema>) {
-  const { messageId } = params;
+  const { mailbox, messageId } = params;
+  const root = mailboxRoot(mailbox);
 
   const message = await graphRequest<Message>(
-    `/me/messages/${messageId}`
+    `${root}/messages/${messageId}`
   );
 
   // For meeting requests, build meeting details from the eventMessage fields
@@ -332,7 +352,7 @@ export async function readMail(params: z.infer<typeof readMailSchema>) {
     // Try to get the calendar event ID via $expand for RSVP
     try {
       const expanded = await graphRequest<Record<string, unknown>>(
-        `/me/messages/${messageId}?$expand=microsoft.graph.eventMessage/event($select=id)`
+        `${root}/messages/${messageId}?$expand=microsoft.graph.eventMessage/event($select=id)`
       );
       const eventData = expanded.event as Record<string, unknown> | undefined;
       if (eventData?.id) {
@@ -364,9 +384,9 @@ export async function readMail(params: z.infer<typeof readMailSchema>) {
 }
 
 export async function searchMail(params: z.infer<typeof searchMailSchema>) {
-  const { query, maxItems = 25 } = params;
+  const { mailbox, query, maxItems = 25 } = params;
 
-  const path = `/me/messages?$search="${encodeURIComponent(query)}"&$select=id,subject,from,toRecipients,receivedDateTime,lastModifiedDateTime,isRead,isDraft,bodyPreview,hasAttachments&$top=${maxItems}`;
+  const path = `${mailboxRoot(mailbox)}/messages?$search="${encodeURIComponent(query)}"&$select=id,subject,from,toRecipients,receivedDateTime,lastModifiedDateTime,isRead,isDraft,bodyPreview,hasAttachments&$top=${maxItems}`;
 
   const messages = await graphList<Message>(path, { maxItems });
 

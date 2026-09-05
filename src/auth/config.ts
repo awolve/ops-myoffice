@@ -85,6 +85,8 @@ function getTenantId(): string {
 // Scopes for Graph API access
 const SCOPES = [
   'https://graph.microsoft.com/Mail.ReadWrite',
+  // Shared mailboxes the user has Full Access to, read via /users/<address> (spec 013)
+  'https://graph.microsoft.com/Mail.ReadWrite.Shared',
   'https://graph.microsoft.com/Mail.Send',
   'https://graph.microsoft.com/Calendars.ReadWrite',
   'https://graph.microsoft.com/Tasks.ReadWrite',

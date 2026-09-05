@@ -116,9 +116,9 @@ myoffice config show
 | `myoffice config set --client-id <id>` | Save client ID to config file |
 
 **Mail:**
-- `myoffice mail list [--folder <name>] [--limit <n>] [--skip <n>] [--unread]` - List emails (supports custom folder names; `--skip` pages through a folder). Rows include `isDraft`, `to`/`toNames`, and `lastModified` — a draft has no sender, so `to` is what identifies it
-- `myoffice mail read <id>` - Read email
-- `myoffice mail search <query>` - Search emails
+- `myoffice mail list [--folder <name>] [--limit <n>] [--skip <n>] [--unread] [--mailbox <address>]` - List emails (supports custom folder names; `--skip` pages through a folder; `--mailbox` reads a shared mailbox you have Full Access to, e.g. `test@awolve.ai`). Rows include `isDraft`, `to`/`toNames`, and `lastModified` — a draft has no sender, so `to` is what identifies it
+- `myoffice mail read <id> [--mailbox <address>]` - Read email
+- `myoffice mail search <query> [--mailbox <address>]` - Search emails (KQL, e.g. `to:test+abc@awolve.ai` matches only that plus-address; results span all folders of the mailbox)
 - `myoffice mail send --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Send email with optional attachments
 - `myoffice mail draft --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Create draft email with optional attachments
 - `myoffice mail draft-update --id <id> [--to <addr...>] [--cc <addr...>] [--subject <subj>] [--body <body>]` - Update an existing draft in place; only the options given are replaced, so omitting `--body` keeps the draft's original HTML byte for byte
@@ -218,6 +218,23 @@ myoffice mail list --json
 myoffice --json calendar list
 ```
 
+### Shared Mailbox Examples
+
+`--mailbox <address>` on `mail list`, `mail read`, and `mail search` reads a shared mailbox the signed-in user has Full Access to (Graph `/users/<address>/...` instead of `/me/...`; scope `Mail.ReadWrite.Shared`). Read-only: send, reply, move, and delete stay on your own mailbox.
+
+```bash
+# Newest mail in the shared test mailbox
+myoffice mail list --mailbox test@awolve.ai --limit 10 --json
+
+# Only mail sent to one plus-address (KQL to: matches the exact address)
+myoffice mail search --mailbox test@awolve.ai --query "to:test+exec42-candidate@awolve.ai" --json
+
+# Read one of them
+myoffice mail read --id <message-id> --mailbox test@awolve.ai --json
+```
+
+No access, or the mailbox does not exist: Graph returns 403/404 and the CLI never falls back to your own mailbox.
+
 ### Email Folder Examples
 
 List emails from custom folders:
@@ -289,7 +306,7 @@ Do NOT create specs in this repo.
 4. Commit and push
 
 ### Add new Graph API permission
-Add scope to `scopes` array in `src/auth/config.ts`. User must re-authenticate.
+Add scope to `SCOPES` in `src/auth/config.ts`. Every user must re-authenticate with `myoffice login`: the silent token refresh requests the full scope set, so after a scope is added *every* command fails with `AADSTS65001` until the user logs in again — not only the commands that use the new scope (seen when `Mail.ReadWrite.Shared` was added in v2.12.0).
 
 ### Debug issues
 Run `myoffice debug` to see version, environment variables, and auth status.

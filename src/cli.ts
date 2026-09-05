@@ -208,8 +208,10 @@ mailCmd
   .option('--limit <n>', 'Maximum emails to return', '25')
   .option('--skip <n>', 'Number of emails to skip, for paging')
   .option('--unread', 'Only show unread emails')
+  .option('--mailbox <address>', 'Read a shared mailbox you have access to instead of your own')
   .action(async (opts) => {
     await runCommand('mail_list', {
+      mailbox: opts.mailbox,
       folder: opts.folder,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
       skip: opts.skip ? parseInt(opts.skip, 10) : undefined,
@@ -221,8 +223,9 @@ mailCmd
   .command('read')
   .description('Read a specific email')
   .requiredOption('--id <messageId>', 'The message ID')
+  .option('--mailbox <address>', 'Read a shared mailbox you have access to instead of your own')
   .action(async (opts) => {
-    await runCommand('mail_read', { messageId: opts.id });
+    await runCommand('mail_read', { mailbox: opts.mailbox, messageId: opts.id });
   });
 
 mailCmd
@@ -230,8 +233,10 @@ mailCmd
   .description('Search emails')
   .requiredOption('--query <query>', 'Search query')
   .option('--limit <n>', 'Maximum results', '25')
+  .option('--mailbox <address>', 'Search a shared mailbox you have access to instead of your own')
   .action(async (opts) => {
     await runCommand('mail_search', {
+      mailbox: opts.mailbox,
       query: opts.query,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
     });
