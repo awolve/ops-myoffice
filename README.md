@@ -57,7 +57,7 @@ myoffice login
 
 Opens a browser for device code authentication. Token is cached at `~/.config/myoffice-mcp/msal-cache.json`.
 
-After upgrading to a version that adds a Graph scope (v2.12.0 added `Mail.ReadWrite.Shared`), run `myoffice login` again once. Until you do, every command fails with `AADSTS65001`.
+After upgrading to a version that adds a Graph scope (v2.13.0 added `Mail.ReadWrite.Shared`), run `myoffice login` again once. Until you do, every command fails with `AADSTS65001`.
 
 ## CLI Usage
 

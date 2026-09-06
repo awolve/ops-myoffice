@@ -306,7 +306,7 @@ Do NOT create specs in this repo.
 4. Commit and push
 
 ### Add new Graph API permission
-Add scope to `SCOPES` in `src/auth/config.ts`. Every user must re-authenticate with `myoffice login`: the silent token refresh requests the full scope set, so after a scope is added *every* command fails with `AADSTS65001` until the user logs in again — not only the commands that use the new scope (seen when `Mail.ReadWrite.Shared` was added in v2.12.0).
+Add scope to `SCOPES` in `src/auth/config.ts`. Every user must re-authenticate with `myoffice login`: the silent token refresh requests the full scope set, so after a scope is added *every* command fails with `AADSTS65001` until the user logs in again — not only the commands that use the new scope (seen when `Mail.ReadWrite.Shared` was added in v2.13.0).
 
 ### Debug issues
 Run `myoffice debug` to see version, environment variables, and auth status.
