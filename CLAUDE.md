@@ -233,7 +233,7 @@ myoffice mail search --mailbox test@awolve.ai --query "to:test+exec42-candidate@
 myoffice mail read --id <message-id> --mailbox test@awolve.ai --json
 ```
 
-No access, or the mailbox does not exist: Graph returns 403/404 and the CLI never falls back to your own mailbox.
+No access, or the mailbox does not exist: Graph returns 403/404 and the CLI never falls back to your own mailbox. Only real shared mailboxes work: an M365 Group address (e.g. `hello@awolve.ai`) fails with `403 Group Shard is used in non-Groups URI`, because group mail lives under `/groups/<id>/conversations`, not `/users`. A freshly created shared mailbox answers `404 Default folder Inbox not found` for the first ~15 minutes.
 
 ### Email Folder Examples
 
