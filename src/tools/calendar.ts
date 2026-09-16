@@ -248,3 +248,128 @@ export async function respondEvent(params: z.infer<typeof respondEventSchema>) {
 
   return { success: true, response, eventId, message: `Event ${response}ed` };
 }
+
+// --- Free/busy (getSchedule) ---
+
+interface ScheduleItem {
+  status?: string;
+  subject?: string;
+  location?: string;
+  isPrivate?: boolean;
+  start: { dateTime: string; timeZone: string };
+  end: { dateTime: string; timeZone: string };
+}
+
+interface ScheduleInformation {
+  scheduleId: string;
+  availabilityView?: string;
+  scheduleItems?: ScheduleItem[];
+  workingHours?: {
+    daysOfWeek?: string[];
+    startTime?: string;
+    endTime?: string;
+    timeZone?: { name?: string };
+  };
+  error?: { message?: string; responseCode?: string };
+}
+
+export const getScheduleSchema = z.object({
+  schedules: z
+    .array(z.string())
+    .min(1)
+    .describe('SMTP addresses of people, rooms, or distribution lists'),
+  startDate: z.string().optional().describe('Start (YYYY-MM-DD or ISO datetime). Default: today'),
+  endDate: z.string().optional().describe('End (YYYY-MM-DD or ISO datetime). Default: end of start day'),
+  timeZone: z.string().optional().describe('IANA timezone. Default: this machine’s timezone'),
+  intervalMinutes: z
+    .number()
+    .optional()
+    .describe('Slot size in the availability bar, 5-1440. Default: 30'),
+});
+
+function localTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function todayInZone(timeZone: string): string {
+  // en-CA gives YYYY-MM-DD
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+}
+
+function addDays(dateOnly: string, days: number): string {
+  const [y, m, d] = dateOnly.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Graph wants a naive dateTime plus a separate timeZone, so any offset or Z the
+ * caller typed is dropped rather than silently shifting the window.
+ */
+function normalizeDateTime(value: string, endOfDay: boolean): string {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return endOfDay ? `${addDays(trimmed, 1)}T00:00:00` : `${trimmed}T00:00:00`;
+  }
+  const withoutZone = trimmed.replace(/(Z|[+-]\d{2}:?\d{2})$/, '');
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(withoutZone)) return `${withoutZone}:00`;
+  return withoutZone;
+}
+
+export async function getSchedule(params: z.infer<typeof getScheduleSchema>) {
+  const { schedules, intervalMinutes = 30 } = params;
+  const timeZone = params.timeZone || localTimeZone();
+
+  const startRaw = params.startDate || todayInZone(timeZone);
+  const start = normalizeDateTime(startRaw, false);
+  const end = params.endDate
+    ? normalizeDateTime(params.endDate, true)
+    : normalizeDateTime(start.slice(0, 10), true);
+
+  const response = await graphRequest<{ value: ScheduleInformation[] }>(
+    '/me/calendar/getSchedule',
+    {
+      method: 'POST',
+      body: {
+        schedules,
+        startTime: { dateTime: start, timeZone },
+        endTime: { dateTime: end, timeZone },
+        availabilityViewInterval: intervalMinutes,
+      },
+      headers: { Prefer: `outlook.timezone="${timeZone}"` },
+    }
+  );
+
+  return {
+    start,
+    end,
+    timeZone,
+    intervalMinutes,
+    legend: { '0': 'free', '1': 'tentative', '2': 'busy', '3': 'out of office' },
+    value: (response.value || []).map((s) => ({
+      scheduleId: s.scheduleId,
+      availabilityView: s.availabilityView,
+      workingHours: s.workingHours
+        ? {
+            daysOfWeek: s.workingHours.daysOfWeek,
+            startTime: s.workingHours.startTime?.slice(0, 5),
+            endTime: s.workingHours.endTime?.slice(0, 5),
+            timeZone: s.workingHours.timeZone?.name,
+          }
+        : undefined,
+      // Subjects only come back when the person shares more than free/busy.
+      items: (s.scheduleItems || []).map((i) => ({
+        status: i.status,
+        subject: i.isPrivate ? '(private)' : i.subject,
+        location: i.location || undefined,
+        start: i.start.dateTime,
+        end: i.end.dateTime,
+      })),
+      error: s.error?.message,
+    })),
+  };
+}

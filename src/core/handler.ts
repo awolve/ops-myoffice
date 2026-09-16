@@ -97,6 +97,9 @@ export async function executeCommand(
       case 'calendar_respond':
         result = await calendar.respondEvent(calendar.respondEventSchema.parse(args));
         break;
+      case 'calendar_freebusy':
+        result = await calendar.getSchedule(calendar.getScheduleSchema.parse(args));
+        break;
 
       // Tasks
       case 'tasks_list_lists':

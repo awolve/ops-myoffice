@@ -7,7 +7,7 @@ Unlike admin-focused M365 tools, this uses **delegated authentication** - users 
 ## Features
 
 - **Email** - List, read, search, send (with attachments), draft (create, update, send), reply, delete, mark read/unread, move to folders; list/read/search a shared mailbox with `--mailbox <address>`
-- **Calendar** - List, create, update, delete events (with Teams meetings)
+- **Calendar** - List, create, update, delete events (with Teams meetings); check colleagues' free/busy with `calendar freebusy`
 - **Tasks** - Manage Microsoft To Do lists and tasks
 - **Planner** - Access plans, buckets, and tasks
 - **OneDrive** - Browse, search, read files
@@ -88,6 +88,11 @@ myoffice mail read --id <id> --mailbox test@awolve.ai
 # Calendar
 myoffice calendar list
 myoffice calendar list --start 2024-01-15 --end 2024-01-20
+
+# Free/busy for colleagues, rooms, or distribution lists
+myoffice calendar freebusy --people alice@contoso.com bob@contoso.com
+myoffice calendar freebusy --people alice@contoso.com --start 2026-09-17T08:00 --end 2026-09-17T17:00 --interval 60
+myoffice calendar freebusy --people alice@contoso.com --json
 
 # Tasks (To Do)
 myoffice tasks lists

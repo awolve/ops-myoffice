@@ -350,6 +350,93 @@ function formatContacts(data: { value?: unknown[] }): string {
   return lines.join('\n');
 }
 
+// Format free/busy (calendar getSchedule)
+const FREEBUSY_SYMBOLS: Record<string, string> = {
+  '0': '.', // free (or working elsewhere)
+  '1': '?', // tentative
+  '2': '#', // busy
+  '3': 'X', // out of office
+};
+
+function formatFreeBusy(data: {
+  start?: string;
+  end?: string;
+  timeZone?: string;
+  intervalMinutes?: number;
+  value?: unknown[];
+}): string {
+  const people = (data.value || []) as Array<{
+    scheduleId?: string;
+    availabilityView?: string;
+    workingHours?: { startTime?: string; endTime?: string };
+    items?: Array<{
+      status?: string;
+      subject?: string;
+      location?: string;
+      start?: string;
+      end?: string;
+    }>;
+    error?: string;
+  }>;
+
+  if (people.length === 0) {
+    return 'No schedules returned.';
+  }
+
+  // "2026-09-16T09:00:00" -> "Sep 16 09:00"; the value is already in the
+  // requested timezone, so slicing beats re-parsing it as a Date.
+  const stamp = (dt?: string): string => {
+    if (!dt) return '';
+    const [date, time = ''] = dt.split('T');
+    const [, m, d] = date.split('-');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)} ${time.slice(0, 5)}`;
+  };
+
+  const lines: string[] = [];
+  lines.push(
+    `${stamp(data.start)} -> ${stamp(data.end)}  (${data.timeZone || 'UTC'}, ${data.intervalMinutes || 30} min slots)`
+  );
+  lines.push('Legend: . free   ? tentative   # busy   X out of office');
+  lines.push('');
+
+  for (const person of people) {
+    lines.push(person.scheduleId || '(unknown)');
+
+    if (person.error) {
+      lines.push(`  ! ${person.error}`);
+      lines.push('');
+      continue;
+    }
+
+    const bar = (person.availabilityView || '')
+      .split('')
+      .map((c) => FREEBUSY_SYMBOLS[c] ?? c)
+      .join('');
+    if (bar) lines.push(`  ${bar}`);
+
+    const hours = person.workingHours;
+    if (hours?.startTime && hours?.endTime) {
+      lines.push(`  working hours ${hours.startTime}-${hours.endTime}`);
+    }
+
+    for (const item of person.items || []) {
+      const when = `${stamp(item.start)}-${(item.end || '').split('T')[1]?.slice(0, 5) || ''}`;
+      const what = item.subject ? ` ${item.subject}` : '';
+      const where = item.location ? ` (${item.location})` : '';
+      lines.push(`  ${pad(when, 18)} ${pad(item.status || '', 12)}${what}${where}`);
+    }
+
+    if (!(person.items || []).length) {
+      lines.push('  no items in window');
+    }
+
+    lines.push('');
+  }
+
+  return lines.join('\n').trimEnd();
+}
+
 // Generic object formatter
 function formatObject(data: unknown): string {
   return JSON.stringify(data, null, 2);
@@ -365,6 +452,10 @@ export function formatOutput(data: unknown, toolName?: string): string {
   const obj = data as Record<string, unknown>;
 
   // Check for specific tool outputs
+  if (toolName === 'calendar_freebusy') {
+    return formatFreeBusy(data as { value?: unknown[] });
+  }
+
   if (toolName === 'auth_status') {
     return formatAuthStatus(data as { authenticated?: boolean; user?: { displayName?: string; mail?: string } | null });
   }

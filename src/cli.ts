@@ -543,6 +543,24 @@ calendarCmd
     });
   });
 
+calendarCmd
+  .command('freebusy')
+  .description('Check free/busy for colleagues, rooms, or distribution lists')
+  .requiredOption('--people <emails...>', 'Email addresses to check')
+  .option('--start <date>', 'Start date (YYYY-MM-DD or ISO datetime, default: today)')
+  .option('--end <date>', 'End date (YYYY-MM-DD or ISO datetime, default: end of start day)')
+  .option('--timezone <tz>', 'IANA timezone (default: this machine’s timezone)')
+  .option('--interval <minutes>', 'Availability bar slot size in minutes', '30')
+  .action(async (opts) => {
+    await runCommand('calendar_freebusy', {
+      schedules: opts.people,
+      startDate: opts.start,
+      endDate: opts.end,
+      timeZone: opts.timezone,
+      intervalMinutes: opts.interval ? parseInt(opts.interval, 10) : undefined,
+    });
+  });
+
 // Tasks commands
 const tasksCmd = program
   .command('tasks')
