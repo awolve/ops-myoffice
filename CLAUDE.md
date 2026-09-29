@@ -127,7 +127,12 @@ myoffice config show
 - `myoffice mail forward --id <id> --to <addr...> [--body <comment>]` - Forward email, optionally with a comment above the forwarded message
 - `myoffice mail delete <id>` - Delete email
 - `myoffice mail mark <id> [--unread]` - Mark as read/unread
-- `myoffice mail move --id <id> --folder <name>` - Move email to folder (creates folder if needed)
+- `myoffice mail move --id <id> --folder <name>` - Move email to folder (creates folder if needed). A name only finds top-level folders; for a subfolder use `--folder-id <id>`
+- `myoffice mail folders` - List every folder at every depth; `name` is the slash-joined path (`Inbox/Clients/Melbye`), `displayName` the folder's own name, `parentId` its parent
+- `myoffice mail list --folder-id <id>` - List a folder by id (needed for subfolders)
+- `myoffice mail folder-create --name <n> [--parent-id <id>]` - Create a folder, top-level or under a parent
+- `myoffice mail folder-move --id <id> [--parent-id <id>]` - Move a folder into another folder; without `--parent-id` it moves to the top level
+- `myoffice mail folder-rename --id <id> --name <n>` - Rename a folder
 - `myoffice mail attachments --id <id>` - List email attachments
 - `myoffice mail download-attachment --id <id> --attachment-id <attachId> --output <path>` - Download attachment
 

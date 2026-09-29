@@ -192,7 +192,7 @@ configCmd
 // Mail commands
 const mailCmd = program
   .command('mail')
-  .description('Email operations (folders, list, read, send, draft, draft-update, draft-send, reply, forward, search, delete, mark, move)');
+  .description('Email operations (folders, list, read, send, draft, draft-update, draft-send, reply, forward, search, delete, mark, move, folder-create, folder-move, folder-rename)');
 
 mailCmd
   .command('folders')
@@ -205,6 +205,7 @@ mailCmd
   .command('list')
   .description('List emails from a folder')
   .option('--folder <name>', 'Folder name - use "inbox", "sentitems", "drafts" or custom folder name (default: inbox)')
+  .option('--folder-id <folderId>', 'Folder ID (from `mail folders`); use for subfolders')
   .option('--limit <n>', 'Maximum emails to return', '25')
   .option('--skip <n>', 'Number of emails to skip, for paging')
   .option('--unread', 'Only show unread emails')
@@ -213,6 +214,7 @@ mailCmd
     await runCommand('mail_list', {
       mailbox: opts.mailbox,
       folder: opts.folder,
+      folderId: opts.folderId,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
       skip: opts.skip ? parseInt(opts.skip, 10) : undefined,
       unreadOnly: opts.unread || undefined,
@@ -400,12 +402,41 @@ mailCmd
   .command('move')
   .description('Move an email to a folder (creates folder if needed)')
   .requiredOption('--id <messageId>', 'The message ID')
-  .requiredOption('--folder <name>', 'Destination folder name')
+  .option('--folder <name>', 'Destination folder name (top-level folders only)')
+  .option('--folder-id <folderId>', 'Destination folder ID (from `mail folders`); use for subfolders')
   .action(async (opts) => {
     await runCommand('mail_move', {
       messageId: opts.id,
       folderName: opts.folder,
+      folderId: opts.folderId,
     });
+  });
+
+mailCmd
+  .command('folder-create')
+  .description('Create a mail folder')
+  .requiredOption('--name <name>', 'Folder name')
+  .option('--parent-id <folderId>', 'Parent folder ID (from `mail folders`); omit for top level')
+  .action(async (opts) => {
+    await runCommand('mail_folder_create', { name: opts.name, parentId: opts.parentId });
+  });
+
+mailCmd
+  .command('folder-move')
+  .description('Move a mail folder into another folder, or to the top level')
+  .requiredOption('--id <folderId>', 'Folder ID (from `mail folders`)')
+  .option('--parent-id <folderId>', 'New parent folder ID; omit to move to the top level')
+  .action(async (opts) => {
+    await runCommand('mail_folder_move', { folderId: opts.id, parentId: opts.parentId });
+  });
+
+mailCmd
+  .command('folder-rename')
+  .description('Rename a mail folder')
+  .requiredOption('--id <folderId>', 'Folder ID (from `mail folders`)')
+  .requiredOption('--name <name>', 'New folder name')
+  .action(async (opts) => {
+    await runCommand('mail_folder_rename', { folderId: opts.id, name: opts.name });
   });
 
 mailCmd

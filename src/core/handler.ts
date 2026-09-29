@@ -74,6 +74,15 @@ export async function executeCommand(
       case 'mail_move':
         result = await mail.moveMail(mail.moveMailSchema.parse(args));
         break;
+      case 'mail_folder_create':
+        result = await mail.createMailFolder(mail.createMailFolderSchema.parse(args));
+        break;
+      case 'mail_folder_move':
+        result = await mail.moveMailFolder(mail.moveMailFolderSchema.parse(args));
+        break;
+      case 'mail_folder_rename':
+        result = await mail.renameMailFolder(mail.renameMailFolderSchema.parse(args));
+        break;
 
       // Calendar
       case 'calendar_calendars':

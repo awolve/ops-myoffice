@@ -63,6 +63,8 @@ const mailboxField = z
 export const listMailsSchema = z.object({
   mailbox: mailboxField,
   folder: z.string().optional().describe('Folder to list (inbox, sentitems, drafts, etc.). Default: inbox'),
+  // A name only finds top-level folders, so a subfolder needs its id.
+  folderId: z.string().optional().describe('ID of the folder to list (from `mail folders`); overrides folder'),
   maxItems: z.number().optional().describe('Maximum number of emails to return. Default: 25'),
   skip: z.number().optional().describe('Number of messages to skip, for paging. Default: 0'),
   unreadOnly: z.boolean().optional().describe('Only return unread emails'),
@@ -160,9 +162,29 @@ export const downloadAttachmentSchema = z.object({
   outputPath: z.string().describe('Path where to save the attachment'),
 });
 
-export const moveMailSchema = z.object({
-  messageId: z.string().describe('The ID of the message to move'),
-  folderName: z.string().describe('Name of the destination folder (e.g., "Under Processing", "Captured", "Skipped")'),
+export const moveMailSchema = z
+  .object({
+    messageId: z.string().describe('The ID of the message to move'),
+    folderName: z.string().optional().describe('Name of the destination folder (e.g., "Under Processing", "Captured", "Skipped")'),
+    // A name only finds top-level folders, so a subfolder needs its id.
+    folderId: z.string().optional().describe('ID of the destination folder (from `mail folders`); works for subfolders'),
+  })
+  .refine((p) => !!p.folderName !== !!p.folderId, { message: 'Give exactly one of --folder or --folder-id' });
+
+export const createMailFolderSchema = z.object({
+  name: z.string().min(1).describe('Display name of the new folder'),
+  parentId: z.string().optional().describe('ID of the parent folder; omit for a top-level folder'),
+});
+
+export const moveMailFolderSchema = z.object({
+  folderId: z.string().describe('ID of the folder to move'),
+  // Graph's well-known name for the mailbox root: a folder moved here is top-level.
+  parentId: z.string().default('msgfolderroot').describe('ID of the new parent folder; omit to move to the top level'),
+});
+
+export const renameMailFolderSchema = z.object({
+  folderId: z.string().describe('ID of the folder to rename'),
+  name: z.string().min(1).describe('New display name'),
 });
 
 // Helper: Get folder ID by name (searches if not a well-known folder)
@@ -222,44 +244,41 @@ export async function listFolders() {
     childFolderCount: number;
   }
 
-  const folders = await graphList<MailFolder>(
-    `/me/mailFolders?$select=id,displayName,parentFolderId,totalItemCount,unreadItemCount,childFolderCount&$top=100`
-  );
+  const select = '$select=id,displayName,parentFolderId,totalItemCount,unreadItemCount,childFolderCount&$top=100';
+  const MAX_FOLDERS = 1000;
 
-  // Fetch child folders for any folder with children
+  // Every depth, parent before children. `name` is the slash-joined path
+  // ("Inbox/Clients/Melbye"); `displayName` is the folder's own name.
   const allFolders: Array<{
     id: string;
     name: string;
+    displayName: string;
     parentId: string;
     totalItems: number;
     unreadItems: number;
+    childFolderCount: number;
   }> = [];
 
-  for (const f of folders) {
-    allFolders.push({
-      id: f.id,
-      name: f.displayName,
-      parentId: f.parentFolderId,
-      totalItems: f.totalItemCount,
-      unreadItems: f.unreadItemCount,
-    });
-
-    if (f.childFolderCount > 0) {
-      const children = await graphList<MailFolder>(
-        `/me/mailFolders/${f.id}/childFolders?$select=id,displayName,parentFolderId,totalItemCount,unreadItemCount,childFolderCount&$top=100`
-      );
-      for (const child of children) {
-        allFolders.push({
-          id: child.id,
-          name: `${f.displayName}/${child.displayName}`,
-          parentId: child.parentFolderId,
-          totalItems: child.totalItemCount,
-          unreadItems: child.unreadItemCount,
-        });
+  async function walk(path: string, prefix: string) {
+    const folders = await graphList<MailFolder>(path, { maxItems: MAX_FOLDERS });
+    for (const f of folders) {
+      const name = prefix ? `${prefix}/${f.displayName}` : f.displayName;
+      allFolders.push({
+        id: f.id,
+        name,
+        displayName: f.displayName,
+        parentId: f.parentFolderId,
+        totalItems: f.totalItemCount,
+        unreadItems: f.unreadItemCount,
+        childFolderCount: f.childFolderCount,
+      });
+      if (f.childFolderCount > 0 && allFolders.length < MAX_FOLDERS) {
+        await walk(`/me/mailFolders/${f.id}/childFolders?${select}`, name);
       }
     }
   }
 
+  await walk(`/me/mailFolders?${select}`, '');
   return allFolders;
 }
 
@@ -269,7 +288,7 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
   console.error(`[DEBUG] listMails called with folder: "${folder}"${mailbox ? ` in mailbox ${mailbox}` : ''}`);
 
   // Resolve folder name to folder ID
-  const folderId = await getFolderIdByName(folder, mailbox);
+  const folderId = params.folderId ?? (await getFolderIdByName(folder, mailbox));
 
   if (!folderId) {
     throw new Error(`Folder not found: ${folder}`);
@@ -951,7 +970,7 @@ export async function moveMail(params: z.infer<typeof moveMailSchema>) {
   const { messageId, folderName } = params;
 
   // Get or create the destination folder
-  const folderId = await getOrCreateFolder(folderName);
+  const folderId = params.folderId ?? (await getOrCreateFolder(folderName!));
 
   // Move the message
   await graphRequest(`/me/messages/${messageId}/move`, {
@@ -964,6 +983,34 @@ export async function moveMail(params: z.infer<typeof moveMailSchema>) {
   return {
     success: true,
     messageId,
-    folder: folderName,
+    folder: folderName ?? folderId,
   };
+}
+
+export async function createMailFolder(params: z.infer<typeof createMailFolderSchema>) {
+  const { name, parentId } = params;
+  const path = parentId ? `/me/mailFolders/${encodeURIComponent(parentId)}/childFolders` : '/me/mailFolders';
+  const folder = await graphRequest<{ id: string; displayName: string; parentFolderId: string }>(path, {
+    method: 'POST',
+    body: { displayName: name },
+  });
+  return { id: folder.id, name: folder.displayName, parentId: folder.parentFolderId };
+}
+
+export async function moveMailFolder(params: z.infer<typeof moveMailFolderSchema>) {
+  const { folderId, parentId } = params;
+  const folder = await graphRequest<{ id: string; displayName: string; parentFolderId: string }>(
+    `/me/mailFolders/${encodeURIComponent(folderId)}/move`,
+    { method: 'POST', body: { destinationId: parentId } }
+  );
+  return { id: folder.id, name: folder.displayName, parentId: folder.parentFolderId };
+}
+
+export async function renameMailFolder(params: z.infer<typeof renameMailFolderSchema>) {
+  const { folderId, name } = params;
+  const folder = await graphRequest<{ id: string; displayName: string }>(
+    `/me/mailFolders/${encodeURIComponent(folderId)}`,
+    { method: 'PATCH', body: { displayName: name } }
+  );
+  return { id: folder.id, name: folder.displayName };
 }
