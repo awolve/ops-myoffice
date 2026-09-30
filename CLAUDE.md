@@ -123,7 +123,7 @@ myoffice config show
 - `myoffice mail draft --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Create draft email with optional attachments
 - `myoffice mail draft-update --id <id> [--to <addr...>] [--cc <addr...>] [--subject <subj>] [--body <body>]` - Update an existing draft in place; only the options given are replaced, so omitting `--body` keeps the draft's original HTML byte for byte
 - `myoffice mail draft-send --id <id>` - Send an existing draft exactly as it stands (no body rewriting). Both refuse anything that is not an unsent draft
-- `myoffice mail reply <id> --body <body> [--all]` - Reply to email
+- `myoffice mail reply <id> --body <body> [--all] [--draft]` - Reply to email. `--draft` saves the reply in Drafts instead of sending, threaded in the same conversation (Graph `createReply`/`createReplyAll`) with the body above the quoted chain; returns the draft `id` for `draft-update`/`draft-send`
 - `myoffice mail forward --id <id> --to <addr...> [--body <comment>]` - Forward email, optionally with a comment above the forwarded message
 - `myoffice mail delete <id>` - Delete email
 - `myoffice mail mark <id> [--unread]` - Mark as read/unread

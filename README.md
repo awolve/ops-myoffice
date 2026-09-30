@@ -79,6 +79,7 @@ myoffice mail list --folder drafts --json
 myoffice mail draft-update --id <id> --subject "New subject"          # body untouched, HTML preserved
 myoffice mail draft-update --id <id> --body "Rewritten body"          # only what you pass is replaced
 myoffice mail draft-send --id <id>                                    # sends the draft exactly as it stands
+myoffice mail reply --id <id> --body "Thanks!" --draft                # threaded reply saved in Drafts, not sent (add --all for reply-all)
 
 # Shared mailboxes you have Full Access to (read-only: list, read, search)
 myoffice mail list --mailbox test@awolve.ai --json

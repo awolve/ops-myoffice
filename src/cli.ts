@@ -340,6 +340,7 @@ mailCmd
   .requiredOption('--id <messageId>', 'The message ID to reply to')
   .requiredOption('--body <body>', 'Reply body')
   .option('--all', 'Reply to all recipients')
+  .option('--draft', 'Save as a threaded draft in Drafts instead of sending')
   .option('--attach-inline <files...>', 'Image files to embed in the body (referenced as cid:<basename-without-extension>)')
   .option('--no-html', 'Send as plain text')
   .option('--no-signature', 'Do not append signature')
@@ -349,6 +350,7 @@ mailCmd
       messageId: opts.id,
       body: opts.body,
       replyAll: opts.all || false,
+      draft: opts.draft || false,
       inlineAttachments: opts.attachInline,
       signatureStyle: opts.signatureStyle,
       isHtml: opts.html !== false,

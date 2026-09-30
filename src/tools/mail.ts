@@ -128,6 +128,7 @@ export const replyMailSchema = z.object({
   body: z.string().describe('Reply body (HTML by default)'),
   isHtml: z.boolean().optional().describe('Whether body is HTML. Default: true'),
   replyAll: z.boolean().optional().describe('Reply to all recipients. Default: false'),
+  draft: z.boolean().optional().describe('Save the reply as a threaded draft in Drafts instead of sending it. Default: false'),
   useSignature: z.boolean().optional().describe('Deprecated — false is the same as signatureStyle: none'),
   signatureStyle: z.enum(['standard', 'minimal', 'none']).optional().describe('Which signature to append. Default: minimal for replies and forwards'),
   inlineAttachments: z.array(z.string()).optional().describe('Image file paths to embed in the body. Each file is referenced from the HTML as src="cid:<basename-without-extension>"'),
@@ -767,6 +768,23 @@ async function sendViaDraft(
   attachments: GraphAttachment[],
   toRecipients?: string[]
 ): Promise<void> {
+  const draftId = await buildThreadedDraft(messageId, kind, bodyHtml, isHtml, attachments, toRecipients);
+  await graphRequest(`/me/messages/${draftId}/send`, { method: 'POST' });
+}
+
+/**
+ * Create a reply/forward draft in the same conversation, with our text above
+ * the quoted thread and any attachments added. Returns the draft id; nothing
+ * is sent. `mail reply --draft` stops here, `sendViaDraft` sends it.
+ */
+async function buildThreadedDraft(
+  messageId: string,
+  kind: 'createReply' | 'createReplyAll' | 'createForward',
+  bodyHtml: string,
+  isHtml: boolean,
+  attachments: GraphAttachment[] | undefined,
+  toRecipients?: string[]
+): Promise<string> {
   const draft = await graphRequest<Message>(`/me/messages/${messageId}/${kind}`, {
     method: 'POST',
   });
@@ -788,14 +806,14 @@ async function sendViaDraft(
 
   // One at a time: Graph's attachments collection is a navigation property, so
   // each is its own POST rather than an array on the message.
-  for (const attachment of attachments) {
+  for (const attachment of attachments ?? []) {
     await graphRequest(`/me/messages/${draft.id}/attachments`, {
       method: 'POST',
       body: attachment,
     });
   }
 
-  await graphRequest(`/me/messages/${draft.id}/send`, { method: 'POST' });
+  return draft.id;
 }
 
 export async function replyMail(params: z.infer<typeof replyMailSchema>) {
@@ -810,6 +828,24 @@ export async function replyMail(params: z.infer<typeof replyMailSchema>) {
   finalBody = appendSignature(finalBody, isHtml, resolveSignatureStyle(params, 'minimal'));
 
   const attachments = await collectAttachments(undefined, inlineAttachmentPaths);
+
+  // A draft reply is the review-before-send path: it lands in Drafts, threaded
+  // in the same conversation, and a human (or draft-send) sends it later.
+  if (params.draft) {
+    const draftId = await buildThreadedDraft(
+      messageId,
+      replyAll ? 'createReplyAll' : 'createReply',
+      finalBody,
+      isHtml,
+      attachments
+    );
+    return {
+      success: true,
+      id: draftId,
+      message: replyAll ? 'Reply-all draft created in Drafts' : 'Reply draft created in Drafts',
+    };
+  }
+
   if (attachments) {
     await sendViaDraft(
       messageId,
