@@ -74,6 +74,12 @@ export const respondEventSchema = z.object({
   message: z.string().optional().describe('Optional message to include with the response'),
 });
 
+export const forwardEventSchema = z.object({
+  eventId: z.string().describe('The ID of the event to forward'),
+  to: z.array(z.string().email()).min(1).describe('Recipient email addresses'),
+  comment: z.string().optional().describe('Optional comment to include with the forwarded invite'),
+});
+
 // Tool implementations
 export async function listCalendars() {
   const path = `/me/calendars?$select=id,name,color,isDefaultCalendar,canEdit,owner`;
@@ -247,6 +253,27 @@ export async function respondEvent(params: z.infer<typeof respondEventSchema>) {
   });
 
   return { success: true, response, eventId, message: `Event ${response}ed` };
+}
+
+export function buildEventForwardBody(to: string[], comment?: string) {
+  return {
+    comment: comment ?? '',
+    toRecipients: to.map((address) => ({ emailAddress: { address } })),
+  };
+}
+
+// Works for organiser and attendee alike. Forwarded from an attendee's M365
+// mailbox, Graph also notifies the organiser and adds the recipient to the
+// organiser's copy of the event.
+export async function forwardEvent(params: z.infer<typeof forwardEventSchema>) {
+  const { eventId, to, comment } = params;
+
+  await graphRequest(`/me/events/${eventId}/forward`, {
+    method: 'POST',
+    body: buildEventForwardBody(to, comment),
+  });
+
+  return { success: true, eventId, to, message: `Event forwarded to ${to.join(', ')}` };
 }
 
 // --- Free/busy (getSchedule) ---

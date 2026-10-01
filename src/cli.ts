@@ -468,7 +468,7 @@ mailCmd
 // Calendar commands
 const calendarCmd = program
   .command('calendar')
-  .description('Calendar events (list, get, create, update, delete)');
+  .description('Calendar events (list, get, create, update, delete, respond, forward, freebusy)');
 
 calendarCmd
   .command('calendars')
@@ -573,6 +573,20 @@ calendarCmd
       eventId: opts.id,
       response,
       message: opts.message,
+    });
+  });
+
+calendarCmd
+  .command('forward')
+  .description('Forward a calendar event invite to new recipients (as organiser or attendee)')
+  .requiredOption('--id <eventId>', 'The event ID to forward')
+  .requiredOption('--to <emails...>', 'Recipient emails')
+  .option('--comment <text>', 'Optional comment to include with the invite')
+  .action(async (opts) => {
+    await runCommand('calendar_forward', {
+      eventId: opts.id,
+      to: opts.to,
+      comment: opts.comment,
     });
   });
 

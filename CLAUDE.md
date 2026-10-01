@@ -142,6 +142,7 @@ myoffice config show
 - `myoffice calendar create --subject <subj> --start <dt> --end <dt>` - Create event
 - `myoffice calendar update <id> [--subject <s>] [--start <dt>]` - Update event
 - `myoffice calendar delete <id>` - Delete event
+- `myoffice calendar forward --id <id> --to <emails...> [--comment <text>]` - Forward an invite to new recipients (Graph `event: forward`). Works as organiser or attendee; from an attendee's mailbox Exchange also notifies the organiser and adds the recipient to their copy. Sends real mail. Needs no extra scope — `Calendars.ReadWrite` covers it
 - `myoffice calendar freebusy --people <emails...> [--start <date>] [--end <date>] [--timezone <tz>] [--interval <min>]` - Free/busy for colleagues, rooms, and distribution lists (Graph `getSchedule`). Defaults to today in the machine's timezone, 30-minute slots. Subjects only appear for people whose calendar sharing goes beyond free/busy; an unresolvable address comes back as a per-person `error`, not a failed command. Needs no extra Graph scope — `Calendars.ReadWrite` covers it.
 
 **Tasks (Microsoft To Do):**
