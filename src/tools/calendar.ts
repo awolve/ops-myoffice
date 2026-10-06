@@ -27,6 +27,8 @@ interface Event {
   onlineMeetingUrl?: string;
   body?: { contentType: string; content: string };
   isAllDay?: boolean;
+  // your own answer: none, organizer, tentativelyAccepted, accepted, declined, notResponded
+  responseStatus?: { response: string };
 }
 
 // Schemas
@@ -109,7 +111,7 @@ export async function listEvents(params: z.infer<typeof listEventsSchema>) {
     ? `/me/calendars/${calendarId}/calendarView`
     : `/me/calendarView`;
 
-  const path = `${basePath}?startDateTime=${startDate}&endDateTime=${endDate}&$select=id,subject,start,end,location,organizer,isOnlineMeeting,onlineMeetingUrl,isAllDay&$orderby=start/dateTime&$top=${maxItems}`;
+  const path = `${basePath}?startDateTime=${startDate}&endDateTime=${endDate}&$select=id,subject,start,end,location,organizer,isOnlineMeeting,onlineMeetingUrl,isAllDay,responseStatus&$orderby=start/dateTime&$top=${maxItems}`;
 
   const events = await graphList<Event>(path, { maxItems });
 
@@ -124,6 +126,7 @@ export async function listEvents(params: z.infer<typeof listEventsSchema>) {
     isOnlineMeeting: e.isOnlineMeeting,
     meetingUrl: e.onlineMeetingUrl,
     isAllDay: e.isAllDay,
+    response: e.responseStatus?.response,
   }));
 }
 
