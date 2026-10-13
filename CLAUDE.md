@@ -117,6 +117,7 @@ myoffice config show
 
 **Mail:**
 - `myoffice mail list [--folder <name>] [--limit <n>] [--skip <n>] [--unread] [--mailbox <address>]` - List emails (supports custom folder names; `--skip` pages through a folder; `--mailbox` reads a shared mailbox you have Full Access to, e.g. `test@awolve.ai`). Rows include `isDraft`, `to`/`toNames`, and `lastModified` — a draft has no sender, so `to` is what identifies it
+- `myoffice mail list --all-folders [--since <iso>] [--from <addr...>] [--conversation-id <id>]` - List across every folder with a Graph `$filter` (receivedDateTime always leads it, or Graph refuses the `$orderby`). Finds mail triage already moved. Rows also carry `conversationId` and `folderId`
 - `myoffice mail read <id> [--mailbox <address>]` - Read email
 - `myoffice mail search <query> [--mailbox <address>]` - Search emails (KQL, e.g. `to:test+abc@awolve.ai` matches only that plus-address; results span all folders of the mailbox)
 - `myoffice mail send --to <addr> --subject <subj> --body <body> [--attach <files...>]` - Send email with optional attachments
@@ -185,12 +186,12 @@ myoffice config show
 **Teams:**
 - `myoffice teams list` - List teams
 - `myoffice teams channels <teamId>` - List channels
-- `myoffice teams messages <teamId> <channelId>` - List channel messages
+- `myoffice teams messages <teamId> <channelId> [--since <iso>] [--include-replies]` - List channel messages. Channels take no `$filter`, so `--since` filters after reading; `--include-replies` costs one call per top-level message. Rows carry `fromId` and `replyToId`
 - `myoffice teams post <teamId> <channelId> <message>` - Post message
 
 **Chats:**
-- `myoffice chats list` - List chats
-- `myoffice chats messages <chatId>` - List chat messages
+- `myoffice chats list [--with <email>]` - List chats, optionally only those with a given member (filters the chats read, so raise `--limit`). Rows carry `memberDetails` (`userId`, `displayName`, `email`) next to the older name-only `members`
+- `myoffice chats messages <chatId> [--since <iso>]` - List chat messages. `--since` uses Graph's lastModifiedDateTime filter, then keeps only messages *created* since. Match a sender by `fromId` against `memberDetails.userId`, never by display name
 - `myoffice chats send <chatId> <message>` - Send message
 - `myoffice chats create <email> [message]` - Create/start chat
 

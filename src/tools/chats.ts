@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { graphRequest, graphList, graphDownload } from '../utils/graph-client.js';
+import { createdSince, graphDateTime } from './mail.js';
 
 // Types
 interface ChatMember {
   id: string;
   displayName?: string;
   email?: string;
+  userId?: string;
 }
 
 interface Chat {
@@ -62,6 +64,7 @@ function extractQuotedMessage(attachments?: ChatMessageAttachment[]) {
 interface ChatMessage {
   id: string;
   createdDateTime: string;
+  lastModifiedDateTime?: string;
   from?: ChatMessageFrom;
   body: {
     contentType: string;
@@ -78,11 +81,13 @@ interface HostedContent {
 // Schemas
 export const listChatsSchema = z.object({
   maxItems: z.number().optional().describe('Maximum number of chats to return. Default: 25'),
+  withMember: z.string().optional().describe('Only chats that have this person (email address) as a member'),
 });
 
 export const listChatMessagesSchema = z.object({
   chatId: z.string().describe('The ID of the chat'),
   maxItems: z.number().optional().describe('Maximum number of messages to return. Default: 25'),
+  since: z.string().optional().describe('Only messages created at or after this time (ISO 8601)'),
 });
 
 export const sendChatMessageSchema = z.object({
@@ -108,34 +113,52 @@ export const createChatSchema = z.object({
 
 // Tool implementations
 export async function listChats(params: z.infer<typeof listChatsSchema>) {
-  const { maxItems = 25 } = params;
+  const { maxItems = 25, withMember } = params;
+  const wanted = withMember?.toLowerCase();
 
   const chats = await graphList<Chat>(
     `/me/chats?$expand=members&$select=id,topic,chatType,createdDateTime,lastUpdatedDateTime&$top=${maxItems}`,
     { maxItems }
   );
 
-  return chats.map((c) => ({
-    id: c.id,
-    topic: c.topic || '(No topic)',
-    chatType: c.chatType,
-    createdAt: c.createdDateTime,
-    lastUpdated: c.lastUpdatedDateTime,
-    members: c.members?.map((m) => m.displayName || m.email).filter(Boolean),
-  }));
+  return chats
+    .filter((c) => !wanted || c.members?.some((m) => m.email?.toLowerCase() === wanted))
+    .map((c) => ({
+      id: c.id,
+      topic: c.topic || '(No topic)',
+      chatType: c.chatType,
+      createdAt: c.createdDateTime,
+      lastUpdated: c.lastUpdatedDateTime,
+      members: c.members?.map((m) => m.displayName || m.email).filter(Boolean),
+      // `members` stays a list of names for older callers; this carries the ids
+      // and addresses needed to match a message's `fromId` to a person.
+      memberDetails: c.members?.map((m) => ({
+        userId: m.userId ?? null,
+        displayName: m.displayName ?? null,
+        email: m.email ?? null,
+      })),
+    }));
 }
 
 export async function listChatMessages(params: z.infer<typeof listChatMessagesSchema>) {
-  const { chatId, maxItems = 25 } = params;
+  const { chatId, maxItems = 25, since } = params;
 
-  const messages = await graphList<ChatMessage>(
-    `/chats/${chatId}/messages?$top=${maxItems}`,
-    { maxItems }
+  // Graph can filter chat messages only on lastModifiedDateTime, and then only
+  // ordered by it. An edit makes an old message "modified since", so the
+  // created-time check below is what --since actually means.
+  const sinceIso = since ? graphDateTime(since) : undefined;
+  const path = sinceIso
+    ? `/chats/${chatId}/messages?$top=${Math.min(maxItems, 50)}&$orderby=lastModifiedDateTime desc&$filter=${encodeURIComponent(`lastModifiedDateTime gt ${sinceIso}`)}`
+    : `/chats/${chatId}/messages?$top=${maxItems}`;
+
+  const messages = (await graphList<ChatMessage>(path, { maxItems })).filter(
+    (m) => createdSince(m.createdDateTime, sinceIso)
   );
 
   return messages.map((m) => ({
     id: m.id,
     createdAt: m.createdDateTime,
+    lastModified: m.lastModifiedDateTime,
     from: m.from?.user?.displayName || m.from?.application?.displayName || 'Unknown',
     // Stable Azure AD object id of the sender (NOT spoofable, unlike the display
     // name). Null for system/event messages with no `from`. Use this — not

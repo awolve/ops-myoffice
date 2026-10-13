@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { graphRequest, graphList } from '../utils/graph-client.js';
+import { createdSince, graphDateTime } from './mail.js';
 
 // Types
 interface Team {
@@ -29,6 +30,8 @@ interface ChatMessageFrom {
 interface ChatMessage {
   id: string;
   createdDateTime: string;
+  lastModifiedDateTime?: string;
+  replyToId?: string | null;
   from?: ChatMessageFrom;
   body: {
     contentType: string;
@@ -50,6 +53,8 @@ export const listChannelMessagesSchema = z.object({
   teamId: z.string().describe('The ID of the team'),
   channelId: z.string().describe('The ID of the channel'),
   maxItems: z.number().optional().describe('Maximum number of messages to return. Default: 25'),
+  since: z.string().optional().describe('Only messages created at or after this time (ISO 8601)'),
+  includeReplies: z.boolean().optional().describe('Also return thread replies, fetched for each top-level message read'),
 });
 
 export const postChannelMessageSchema = z.object({
@@ -90,21 +95,39 @@ export async function listChannels(params: z.infer<typeof listChannelsSchema>) {
 }
 
 export async function listChannelMessages(params: z.infer<typeof listChannelMessagesSchema>) {
-  const { teamId, channelId, maxItems = 25 } = params;
+  const { teamId, channelId, maxItems = 25, since, includeReplies = false } = params;
+  const base = `/teams/${teamId}/channels/${channelId}/messages`;
 
-  const messages = await graphList<ChatMessage>(
-    `/teams/${teamId}/channels/${channelId}/messages?$top=${maxItems}`,
-    { maxItems }
-  );
+  // Channel messages take no $filter, so --since is applied here. A reply
+  // lives under its top-level message, and a new reply can sit under an old
+  // one, so replies are fetched for every top-level message read, not only
+  // for new ones. --limit bounds how many that is.
+  const sinceIso = since ? graphDateTime(since) : undefined;
+  const roots = await graphList<ChatMessage>(`${base}?$top=${Math.min(maxItems, 50)}`, { maxItems });
 
-  return messages.map((m) => ({
-    id: m.id,
-    createdAt: m.createdDateTime,
-    from: m.from?.user?.displayName || m.from?.application?.displayName || 'Unknown',
-    content: m.body.content,
-    contentType: m.body.contentType,
-    subject: m.subject,
-  }));
+  const all: ChatMessage[] = [...roots];
+  if (includeReplies) {
+    for (const root of roots) {
+      all.push(...(await graphList<ChatMessage>(`${base}/${root.id}/replies?$top=50`, { maxItems: 200 })));
+    }
+  }
+
+  return all
+    .filter((m) => createdSince(m.createdDateTime, sinceIso))
+    .sort((a, b) => Date.parse(b.createdDateTime) - Date.parse(a.createdDateTime))
+    .map((m) => ({
+      id: m.id,
+      createdAt: m.createdDateTime,
+      lastModified: m.lastModifiedDateTime,
+      from: m.from?.user?.displayName || m.from?.application?.displayName || 'Unknown',
+      // Stable Azure AD object id of the sender; match people on this, not on `from`.
+      fromId: m.from?.user?.id ?? m.from?.application?.id ?? null,
+      // Set on a reply: the id of the top-level message it answers.
+      replyToId: m.replyToId ?? null,
+      content: m.body.content,
+      contentType: m.body.contentType,
+      subject: m.subject,
+    }));
 }
 
 export async function postChannelMessage(params: z.infer<typeof postChannelMessageSchema>) {

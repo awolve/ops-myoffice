@@ -74,6 +74,10 @@ myoffice mail move --id <id> --folder "Captured"
 myoffice mail send --to user@example.com --subject "Hi" --body "Hello"
 myoffice mail send --to user@example.com --subject "Report" --body "See attached" --attach report.pdf  # With attachment
 
+# Across every folder, with filters — finds mail that triage already moved out of the inbox
+myoffice mail list --all-folders --since 2026-10-12T14:02 --from tiril@example.no --json
+myoffice mail list --all-folders --conversation-id <conversationId> --json   # one thread; rows carry conversationId and folderId
+
 # Drafts — list rows carry isDraft + to/toNames, so a draft is never mistaken for received mail
 myoffice mail list --folder drafts --json
 myoffice mail draft-update --id <id> --subject "New subject"          # body untouched, HTML preserved
@@ -109,7 +113,10 @@ myoffice files search "report"
 
 # Teams & Chats
 myoffice teams list
+myoffice teams messages --team-id <id> --channel-id <id> --since 2026-10-12 --include-replies --json
 myoffice chats list
+myoffice chats list --with tiril@example.no --limit 50 --json   # rows carry memberDetails (userId, email)
+myoffice chats messages --chat-id <id> --since 2026-10-12T14:02 --json
 
 # Planner
 myoffice planner plans

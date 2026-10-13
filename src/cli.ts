@@ -210,6 +210,10 @@ mailCmd
   .option('--skip <n>', 'Number of emails to skip, for paging')
   .option('--unread', 'Only show unread emails')
   .option('--mailbox <address>', 'Read a shared mailbox you have access to instead of your own')
+  .option('--all-folders', 'List across every folder instead of one (finds mail already moved out of the inbox)')
+  .option('--since <time>', 'Only mail received at or after this time (ISO 8601, e.g. 2026-10-12T14:02)')
+  .option('--from <addresses...>', 'Only mail from one of these sender addresses')
+  .option('--conversation-id <id>', 'Only mail in this conversation (the conversationId of any mail in the thread)')
   .action(async (opts) => {
     await runCommand('mail_list', {
       mailbox: opts.mailbox,
@@ -218,6 +222,10 @@ mailCmd
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
       skip: opts.skip ? parseInt(opts.skip, 10) : undefined,
       unreadOnly: opts.unread || undefined,
+      allFolders: opts.allFolders || undefined,
+      since: opts.since,
+      from: opts.from,
+      conversationId: opts.conversationId,
     });
   });
 
@@ -1033,12 +1041,16 @@ teamsCmd
   .description('Read messages from a channel')
   .requiredOption('--team-id <teamId>', 'Team ID')
   .requiredOption('--channel-id <channelId>', 'Channel ID')
-  .option('--limit <n>', 'Maximum messages', '25')
+  .option('--limit <n>', 'Maximum top-level messages', '25')
+  .option('--since <time>', 'Only messages created at or after this time (ISO 8601)')
+  .option('--include-replies', 'Also return thread replies (one extra call per top-level message)')
   .action(async (opts) => {
     await runCommand('teams_channel_messages', {
       teamId: opts.teamId,
       channelId: opts.channelId,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+      since: opts.since,
+      includeReplies: opts.includeReplies || undefined,
     });
   });
 
@@ -1065,9 +1077,11 @@ chatsCmd
   .command('list')
   .description('List your chats')
   .option('--limit <n>', 'Maximum chats', '25')
+  .option('--with <email>', 'Only chats that have this person as a member (filters the chats read; raise --limit to look further back)')
   .action(async (opts) => {
     await runCommand('chats_list', {
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+      withMember: opts.with,
     });
   });
 
@@ -1076,10 +1090,12 @@ chatsCmd
   .description('Read messages from a chat')
   .requiredOption('--chat-id <chatId>', 'Chat ID')
   .option('--limit <n>', 'Maximum messages', '25')
+  .option('--since <time>', 'Only messages created at or after this time (ISO 8601)')
   .action(async (opts) => {
     await runCommand('chats_messages', {
       chatId: opts.chatId,
       maxItems: opts.limit ? parseInt(opts.limit, 10) : undefined,
+      since: opts.since,
     });
   });
 

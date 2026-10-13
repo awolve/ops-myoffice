@@ -30,6 +30,8 @@ interface Message {
     content: string;
   };
   hasAttachments?: boolean;
+  conversationId?: string;
+  parentFolderId?: string;
 }
 
 interface Attachment {
@@ -68,7 +70,55 @@ export const listMailsSchema = z.object({
   maxItems: z.number().optional().describe('Maximum number of emails to return. Default: 25'),
   skip: z.number().optional().describe('Number of messages to skip, for paging. Default: 0'),
   unreadOnly: z.boolean().optional().describe('Only return unread emails'),
+  allFolders: z.boolean().optional().describe('List across every folder of the mailbox instead of one folder'),
+  since: z.string().optional().describe('Only mail received at or after this time (ISO 8601)'),
+  from: z.array(z.string()).optional().describe('Only mail from one of these sender addresses'),
+  conversationId: z.string().optional().describe('Only mail in this conversation (thread)'),
 });
+
+/** Turn a user-supplied time into the form Graph's $filter wants, or throw. */
+export function graphDateTime(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error(`Not a valid time: ${value} (use ISO 8601, e.g. 2026-10-12T14:02)`);
+  }
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+/**
+ * Whether a Graph timestamp is at or after `sinceIso`. Compared as times, not
+ * strings: Graph adds milliseconds ("…:00.500Z"), and "." sorts before "Z".
+ */
+export function createdSince(created: string, sinceIso?: string): boolean {
+  return !sinceIso || Date.parse(created) >= Date.parse(sinceIso);
+}
+
+const odataString = (s: string) => `'${s.replace(/'/g, "''")}'`;
+
+/**
+ * The $filter for `mail list`. receivedDateTime always comes first: Graph
+ * rejects `$orderby=receivedDateTime` as "too complex" unless the ordered
+ * property leads the filter, so a filter without --since still opens with an
+ * always-true receivedDateTime clause.
+ */
+export function buildMailFilter(params: {
+  since?: string;
+  from?: string[];
+  conversationId?: string;
+  unreadOnly?: boolean;
+}): string | undefined {
+  const { since, from, conversationId, unreadOnly } = params;
+  const clauses: string[] = [];
+  if (from?.length) {
+    const senders = from.map((a) => `from/emailAddress/address eq ${odataString(a)}`);
+    clauses.push(senders.length > 1 ? `(${senders.join(' or ')})` : senders[0]);
+  }
+  if (conversationId) clauses.push(`conversationId eq ${odataString(conversationId)}`);
+  if (unreadOnly) clauses.push('isRead eq false');
+  if (!since && !clauses.length) return undefined;
+  const lead = `receivedDateTime ge ${since ? graphDateTime(since) : '1900-01-01T00:00:00Z'}`;
+  return [lead, ...clauses].join(' and ');
+}
 
 export const readMailSchema = z.object({
   mailbox: mailboxField,
@@ -284,30 +334,38 @@ export async function listFolders() {
 }
 
 export async function listMails(params: z.infer<typeof listMailsSchema>) {
-  const { mailbox, folder = 'inbox', maxItems = 25, skip = 0, unreadOnly = false } = params;
+  const { mailbox, folder = 'inbox', maxItems = 25, skip = 0, unreadOnly = false, allFolders = false } = params;
 
-  console.error(`[DEBUG] listMails called with folder: "${folder}"${mailbox ? ` in mailbox ${mailbox}` : ''}`);
+  console.error(`[DEBUG] listMails called with ${allFolders ? 'all folders' : `folder: "${folder}"`}${mailbox ? ` in mailbox ${mailbox}` : ''}`);
 
-  // Resolve folder name to folder ID
-  const folderId = params.folderId ?? (await getFolderIdByName(folder, mailbox));
+  let base: string;
+  if (allFolders) {
+    // /messages spans every folder, so mail that triage already moved is still found.
+    base = `${mailboxRoot(mailbox)}/messages`;
+  } else {
+    // Resolve folder name to folder ID
+    const folderId = params.folderId ?? (await getFolderIdByName(folder, mailbox));
 
-  if (!folderId) {
-    throw new Error(`Folder not found: ${folder}`);
+    if (!folderId) {
+      throw new Error(`Folder not found: ${folder}`);
+    }
+
+    // URL encode the folder ID in case it contains special characters
+    const encodedFolderId = encodeURIComponent(folderId);
+    console.error(`[DEBUG] Folder ID (raw): ${folderId}`);
+    console.error(`[DEBUG] Folder ID (encoded): ${encodedFolderId}`);
+    base = `${mailboxRoot(mailbox)}/mailFolders/${encodedFolderId}/messages`;
   }
 
-  // URL encode the folder ID in case it contains special characters
-  const encodedFolderId = encodeURIComponent(folderId);
-  console.error(`[DEBUG] Folder ID (raw): ${folderId}`);
-  console.error(`[DEBUG] Folder ID (encoded): ${encodedFolderId}`);
-
-  let path = `${mailboxRoot(mailbox)}/mailFolders/${encodedFolderId}/messages?$orderby=receivedDateTime desc&$top=${maxItems}`;
+  let path = `${base}?$orderby=receivedDateTime desc&$top=${maxItems}`;
 
   if (skip > 0) {
     path += `&$skip=${skip}`;
   }
 
-  if (unreadOnly) {
-    path += '&$filter=isRead eq false';
+  const filter = buildMailFilter({ since: params.since, from: params.from, conversationId: params.conversationId, unreadOnly });
+  if (filter) {
+    path += `&$filter=${encodeURIComponent(filter)}`;
   }
 
   console.error(`[DEBUG] Calling Graph API with path: ${path}`);
@@ -340,6 +398,8 @@ export async function listMails(params: z.infer<typeof listMailsSchema>) {
       toNames: m.toRecipients?.map((r) => r.emailAddress.name || r.emailAddress.address) ?? [],
       preview: m.bodyPreview?.substring(0, 200),
       hasAttachments: m.hasAttachments,
+      conversationId: m.conversationId,
+      folderId: m.parentFolderId,
       // Graph returns meetingMessageType on eventMessage/eventMessageRequest resources
       meetingMessageType: raw.meetingMessageType as string | undefined,
     };
@@ -406,11 +466,13 @@ export async function readMail(params: z.infer<typeof readMailSchema>) {
 export async function searchMail(params: z.infer<typeof searchMailSchema>) {
   const { mailbox, query, maxItems = 25 } = params;
 
-  const path = `${mailboxRoot(mailbox)}/messages?$search="${encodeURIComponent(query)}"&$select=id,subject,from,toRecipients,receivedDateTime,lastModifiedDateTime,isRead,isDraft,bodyPreview,hasAttachments&$top=${maxItems}`;
+  const path = `${mailboxRoot(mailbox)}/messages?$search="${encodeURIComponent(query)}"&$select=id,subject,from,toRecipients,receivedDateTime,lastModifiedDateTime,isRead,isDraft,bodyPreview,hasAttachments,conversationId,parentFolderId&$top=${maxItems}`;
 
   const messages = await graphList<Message>(path, { maxItems });
 
   return messages.map((m) => ({
+    conversationId: m.conversationId,
+    folderId: m.parentFolderId,
     id: m.id,
     subject: m.subject,
     from: m.from?.emailAddress?.address,
