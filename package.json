@@ -4,6 +4,14 @@
   "description": "CLI for personal Microsoft 365 access - email, calendar, tasks, OneDrive, Teams, Planner",
   "type": "module",
   "main": "dist/cli.js",
+  "exports": {
+    ".": "./dist/cli.js",
+    "./graph": {
+      "types": "./dist/graph.d.ts",
+      "default": "./dist/graph.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "myoffice": "dist/cli.js"
   },
@@ -14,7 +22,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test tests/signature.test.ts tests/calendar-forward.test.ts tests/mail-filter.test.ts",
+    "test": "node --import tsx --test tests/signature.test.ts tests/calendar-forward.test.ts tests/mail-filter.test.ts tests/graph-error.test.ts",
     "prepublishOnly": "npm run build",
     "postinstall": "echo '\n✅ @awolve/myoffice installed!\n\nRun: myoffice --help\nOr:  npx @awolve/myoffice --help\n'",
     "start": "node dist/cli.js",

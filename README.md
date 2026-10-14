@@ -128,6 +128,24 @@ myoffice mail list --json
 
 Run `myoffice --help` for all commands.
 
+## Library use
+
+From v2.20.0 a long-running Node or Bun process can call Graph with the same login as the CLI, without spawning it:
+
+```ts
+import { graphRequest, GraphError } from '@awolve/myoffice/graph';
+
+try {
+  const inbox = await graphRequest<{ unreadItemCount: number }>('/me/mailFolders/inbox?$select=unreadItemCount');
+} catch (e) {
+  if (e instanceof GraphError && (e.status === 429 || e.status === 503)) {
+    // back off for e.retryAfter seconds (undefined when Graph sent no Retry-After)
+  }
+}
+```
+
+`graphRequest` accepts a path under `https://graph.microsoft.com/v1.0` or a full Graph URL (an `@odata.nextLink` or `@odata.deltaLink` as returned). Also exported: `getAccessToken`, `isAuthenticated`, `getCurrentUser`, `parseRetryAfter`.
+
 ## Azure AD App Registration
 
 1. Go to [Azure Portal](https://portal.azure.com) > Azure Active Directory > App registrations

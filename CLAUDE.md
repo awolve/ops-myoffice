@@ -54,6 +54,15 @@ src/
 - `src/auth/config.ts` - Azure AD scopes (add new permissions here)
 - `src/utils/graph-client.ts` - All Graph API calls go through this
 - `src/tools/*.ts` - Individual tool implementations
+- `src/graph.ts` - Library entry (`@awolve/myoffice/graph`), see below
+
+## Library use
+
+`@awolve/myoffice/graph` (v2.20.0+) exposes `graphRequest`, `GraphError`, `parseRetryAfter`, `getAccessToken`, `isAuthenticated` and `getCurrentUser` to long-running callers that need Graph with the user's MyOffice login but not a process per call. The Cortex mail feed (cortex-services spec 011) is the first. Every export there is a promise to code outside this repo: add to it rarely, never change a signature in place.
+
+- **Failed calls throw `GraphError`** with `status`, `code` (Graph's error code, e.g. `ErrorItemNotFound`) and `retryAfter` (seconds, from `Retry-After`). The message stays `Graph API error (<status>): <message>`, because callers such as Cortex Web's error classifier match on it.
+- **`graphRequest` takes a path or a full URL**, so `@odata.nextLink` and `@odata.deltaLink` can be passed back as Graph returned them.
+- The CLI (`"."`, the `myoffice` bin) is unchanged by the `exports` map.
 
 ## Authentication
 

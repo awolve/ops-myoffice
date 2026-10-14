@@ -14,6 +14,59 @@ export interface GraphRequestOptions {
   headers?: Record<string, string>;
 }
 
+/**
+ * A failed Graph call. The message keeps the long-standing
+ * `Graph API error (<status>): <message>` form, which callers (Cortex Web's
+ * error classifier among them) match on, and adds what a background caller
+ * needs to back off properly: the status and Graph's `Retry-After`.
+ */
+export class GraphError extends Error {
+  readonly status: number;
+  /** Graph's `code`, e.g. `ErrorItemNotFound` or `syncStateNotFound`, when it sent one. */
+  readonly code?: string;
+  /** Seconds to wait before retrying, from the `Retry-After` header; undefined when absent. */
+  readonly retryAfter?: number;
+
+  constructor(status: number, message: string, code?: string, retryAfter?: number) {
+    super(`Graph API error (${status}): ${message}`);
+    this.name = 'GraphError';
+    this.status = status;
+    this.code = code;
+    this.retryAfter = retryAfter;
+  }
+}
+
+/** `Retry-After` is either delay-seconds or an HTTP date (RFC 9110 §10.2.3). */
+export function parseRetryAfter(value: string | null, now: number = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  const at = Date.parse(trimmed);
+  if (Number.isNaN(at)) return undefined;
+  return Math.max(0, Math.ceil((at - now) / 1000));
+}
+
+/** Builds the GraphError for a non-OK response, reading its body once. */
+export async function toGraphError(response: Response): Promise<GraphError> {
+  const errorText = await response.text();
+  let errorMessage = errorText;
+  let code: string | undefined;
+
+  try {
+    const errorJson = JSON.parse(errorText);
+    errorMessage = errorJson.error?.message || errorText;
+    code = errorJson.error?.code;
+  } catch {
+    // Not JSON: keep the raw text as the message.
+  }
+
+  return new GraphError(response.status, errorMessage, code, parseRetryAfter(response.headers.get('retry-after')));
+}
+
+/**
+ * `path` is relative to the v1.0 root (`/me/messages`), or an absolute Graph
+ * URL as Graph hands back in `@odata.nextLink` and `@odata.deltaLink`.
+ */
 export async function graphRequest<T>(
   path: string,
   options: GraphRequestOptions = {}
@@ -22,7 +75,8 @@ export async function graphRequest<T>(
 
   const accessToken = await getAccessToken();
 
-  const response = await fetch(`${GRAPH_BASE_URL}${path}`, {
+  const url = path.startsWith('https://') ? path : `${GRAPH_BASE_URL}${path}`;
+  const response = await fetch(url, {
     method,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -33,17 +87,7 @@ export async function graphRequest<T>(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage: string;
-
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error?.message || errorText;
-    } catch {
-      errorMessage = errorText;
-    }
-
-    throw new Error(`Graph API error (${response.status}): ${errorMessage}`);
+    throw await toGraphError(response);
   }
 
   // Handle 204 No Content and 202 Accepted (e.g., sendMail)
@@ -77,17 +121,7 @@ export async function graphUpload<T>(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage: string;
-
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error?.message || errorText;
-    } catch {
-      errorMessage = errorText;
-    }
-
-    throw new Error(`Graph API error (${response.status}): ${errorMessage}`);
+    throw await toGraphError(response);
   }
 
   return response.json() as Promise<T>;
@@ -183,17 +217,7 @@ export async function graphDownload(path: string): Promise<Buffer> {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage: string;
-
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error?.message || errorText;
-    } catch {
-      errorMessage = errorText;
-    }
-
-    throw new Error(`Graph API error (${response.status}): ${errorMessage}`);
+    throw await toGraphError(response);
   }
 
   const arrayBuffer = await response.arrayBuffer();
