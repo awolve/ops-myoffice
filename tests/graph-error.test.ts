@@ -7,7 +7,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { GraphError, parseRetryAfter, toGraphError } = await import('../src/utils/graph-client.js');
+const { GraphError, parseRetryAfter, toGraphError, resolveGraphUrl } = await import('../src/utils/graph-client.js');
+
+test('a path is resolved under the v1.0 root', () => {
+  assert.equal(resolveGraphUrl('/me/messages'), 'https://graph.microsoft.com/v1.0/me/messages');
+});
+
+test('a nextLink/deltaLink on Graph passes through', () => {
+  const link = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$deltatoken=abc';
+  assert.equal(resolveGraphUrl(link), link);
+});
+
+test('the token is never sent to another host or over plain http', () => {
+  assert.throws(() => resolveGraphUrl('https://evil.example/v1.0/me'), /Refusing/);
+  assert.throws(() => resolveGraphUrl('https://graph.microsoft.com.evil.example/x'), /Refusing/);
+  assert.throws(() => resolveGraphUrl('http://graph.microsoft.com/v1.0/me'), /Refusing/);
+});
 
 test('message keeps the long-standing form callers match on', () => {
   const e = new GraphError(503, 'Command Concurrency Limit Reached');

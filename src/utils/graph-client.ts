@@ -64,8 +64,23 @@ export async function toGraphError(response: Response): Promise<GraphError> {
 }
 
 /**
+ * A path under the v1.0 root, or an absolute URL as Graph hands back in
+ * `@odata.nextLink` / `@odata.deltaLink`. An absolute URL must be https on
+ * Graph's own host: the request carries the user's bearer token, so any other
+ * host would receive it.
+ */
+export function resolveGraphUrl(path: string): string {
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(path)) return `${GRAPH_BASE_URL}${path}`;
+  const url = new URL(path);
+  if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== new URL(GRAPH_BASE_URL).hostname) {
+    throw new Error(`Refusing to send the Graph token to ${url.protocol}//${url.hostname}`);
+  }
+  return url.toString();
+}
+
+/**
  * `path` is relative to the v1.0 root (`/me/messages`), or an absolute Graph
- * URL as Graph hands back in `@odata.nextLink` and `@odata.deltaLink`.
+ * URL on graph.microsoft.com (see resolveGraphUrl).
  */
 export async function graphRequest<T>(
   path: string,
@@ -75,7 +90,7 @@ export async function graphRequest<T>(
 
   const accessToken = await getAccessToken();
 
-  const url = path.startsWith('https://') ? path : `${GRAPH_BASE_URL}${path}`;
+  const url = resolveGraphUrl(path);
   const response = await fetch(url, {
     method,
     headers: {
