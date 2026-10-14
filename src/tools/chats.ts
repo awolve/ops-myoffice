@@ -17,7 +17,18 @@ interface Chat {
   createdDateTime: string;
   lastUpdatedDateTime?: string;
   members?: ChatMember[];
+  lastMessagePreview?: {
+    id: string;
+    createdDateTime: string;
+    isDeleted?: boolean;
+    messageType?: string;
+    body?: { contentType?: string; content?: string };
+    from?: ChatMessageFrom | null;
+  } | null;
 }
+
+/** Graph refuses `$top` above 50 for chats; larger limits page through nextLink. */
+const CHATS_PAGE_MAX = 50;
 
 interface ChatMessageFrom {
   user?: {
@@ -116,8 +127,11 @@ export async function listChats(params: z.infer<typeof listChatsSchema>) {
   const { maxItems = 25, withMember } = params;
   const wanted = withMember?.toLowerCase();
 
+  // Newest conversation first, so `--limit` keeps the chats that are active
+  // rather than an arbitrary page (Graph's default order is not by activity).
+  const order = encodeURIComponent('lastMessagePreview/createdDateTime desc');
   const chats = await graphList<Chat>(
-    `/me/chats?$expand=members&$select=id,topic,chatType,createdDateTime,lastUpdatedDateTime&$top=${maxItems}`,
+    `/me/chats?$expand=members,lastMessagePreview&$orderby=${order}&$select=id,topic,chatType,createdDateTime,lastUpdatedDateTime&$top=${Math.min(maxItems, CHATS_PAGE_MAX)}`,
     { maxItems }
   );
 
@@ -137,6 +151,18 @@ export async function listChats(params: z.infer<typeof listChatsSchema>) {
         displayName: m.displayName ?? null,
         email: m.email ?? null,
       })),
+      // The chat's newest message, so a caller can see what changed without
+      // reading every chat. Null for a chat with no messages.
+      lastMessage: c.lastMessagePreview
+        ? {
+            id: c.lastMessagePreview.id,
+            createdAt: c.lastMessagePreview.createdDateTime,
+            from: c.lastMessagePreview.from?.user?.displayName || c.lastMessagePreview.from?.application?.displayName || null,
+            fromId: c.lastMessagePreview.from?.user?.id ?? c.lastMessagePreview.from?.application?.id ?? null,
+            messageType: c.lastMessagePreview.messageType ?? null,
+            isDeleted: c.lastMessagePreview.isDeleted ?? false,
+          }
+        : null,
     }));
 }
 

@@ -114,7 +114,7 @@ myoffice files search "report"
 # Teams & Chats
 myoffice teams list
 myoffice teams messages --team-id <id> --channel-id <id> --since 2026-10-12 --include-replies --json
-myoffice chats list
+myoffice chats list                                            # newest conversation first, with lastMessage
 myoffice chats list --with tiril@example.no --limit 50 --json   # rows carry memberDetails (userId, email)
 myoffice chats messages --chat-id <id> --since 2026-10-12T14:02 --json
 

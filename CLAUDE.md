@@ -199,7 +199,7 @@ myoffice config show
 - `myoffice teams post <teamId> <channelId> <message>` - Post message
 
 **Chats:**
-- `myoffice chats list [--with <email>]` - List chats, optionally only those with a given member (filters the chats read, so raise `--limit`). Rows carry `memberDetails` (`userId`, `displayName`, `email`) next to the older name-only `members`
+- `myoffice chats list [--with <email>]` - List chats, newest conversation first (v2.21.0+: ordered by each chat's latest message, so `--limit` keeps the active ones; Graph's default order is not by activity), optionally only those with a given member (filters the chats read, so raise `--limit`). `--limit` above 50 pages (Graph refuses `$top` over 50). Rows carry `memberDetails` (`userId`, `displayName`, `email`) next to the older name-only `members`, and `lastMessage` (`id`, `createdAt`, `from`, `fromId`, `messageType`, `isDeleted`), null for a chat with no messages
 - `myoffice chats messages <chatId> [--since <iso>]` - List chat messages. `--since` uses Graph's lastModifiedDateTime filter, then keeps only messages *created* since. Match a sender by `fromId` against `memberDetails.userId`, never by display name
 - `myoffice chats send <chatId> <message>` - Send message
 - `myoffice chats create <email> [message]` - Create/start chat
