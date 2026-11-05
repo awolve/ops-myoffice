@@ -147,7 +147,7 @@ myoffice config show
 - `myoffice mail download-attachment --id <id> --attachment-id <attachId> --output <path>` - Download attachment
 
 **Calendar:**
-- `myoffice calendar list [--start <date>] [--end <date>]` - List events
+- `myoffice calendar list [--start <date>] [--end <date>] [--limit <n>]` - List events (pages through Graph, so a large `--limit` is safe). Rows carry `type` (`singleInstance`, `occurrence`, `exception`), `seriesMasterId` for parts of a series, and `joinUrl`, the Teams join link (v2.22.0+; `meetingUrl` is empty for Teams meetings). The Cortex calendar cache keeps repeating occurrences only in a window by `type` (cortex-core spec 031)
 - `myoffice calendar get <id>` - Get event details
 - `myoffice calendar create --subject <subj> --start <dt> --end <dt>` - Create event
 - `myoffice calendar update <id> [--subject <s>] [--start <dt>]` - Update event
