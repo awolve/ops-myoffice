@@ -22,7 +22,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test tests/signature.test.ts tests/calendar-forward.test.ts tests/mail-filter.test.ts tests/graph-error.test.ts",
+    "test": "node --import tsx --test tests/signature.test.ts tests/calendar-forward.test.ts tests/calendar-list.test.ts tests/mail-filter.test.ts tests/graph-error.test.ts",
     "prepublishOnly": "npm run build",
     "postinstall": "echo '\n✅ @awolve/myoffice installed!\n\nRun: myoffice --help\nOr:  npx @awolve/myoffice --help\n'",
     "start": "node dist/cli.js",

@@ -29,6 +29,32 @@ interface Event {
   isAllDay?: boolean;
   // your own answer: none, organizer, tentativelyAccepted, accepted, declined, notResponded
   responseStatus?: { response: string };
+  // singleInstance, occurrence, exception, seriesMaster — lets a cache keep
+  // repeating occurrences in a window (Cortex spec cortex-core/031)
+  type?: 'singleInstance' | 'occurrence' | 'exception' | 'seriesMaster';
+  seriesMasterId?: string | null;
+  // The Teams join link. onlineMeetingUrl is empty for Teams meetings.
+  onlineMeeting?: { joinUrl?: string } | null;
+}
+
+/** One `calendar list` row. Fields are only ever added: every consumer runs @latest. */
+export function toEventRow(e: Event) {
+  return {
+    id: e.id,
+    subject: e.subject,
+    start: e.start.dateTime,
+    end: e.end.dateTime,
+    timeZone: e.start.timeZone,
+    location: e.location?.displayName,
+    organizer: e.organizer?.emailAddress?.address,
+    isOnlineMeeting: e.isOnlineMeeting,
+    meetingUrl: e.onlineMeetingUrl,
+    isAllDay: e.isAllDay,
+    response: e.responseStatus?.response,
+    type: e.type,
+    seriesMasterId: e.seriesMasterId ?? undefined,
+    joinUrl: e.onlineMeeting?.joinUrl ?? undefined,
+  };
 }
 
 // Schemas
@@ -111,23 +137,11 @@ export async function listEvents(params: z.infer<typeof listEventsSchema>) {
     ? `/me/calendars/${calendarId}/calendarView`
     : `/me/calendarView`;
 
-  const path = `${basePath}?startDateTime=${startDate}&endDateTime=${endDate}&$select=id,subject,start,end,location,organizer,isOnlineMeeting,onlineMeetingUrl,isAllDay,responseStatus&$orderby=start/dateTime&$top=${maxItems}`;
+  const path = `${basePath}?startDateTime=${startDate}&endDateTime=${endDate}&$select=id,subject,start,end,location,organizer,isOnlineMeeting,onlineMeetingUrl,onlineMeeting,isAllDay,responseStatus,type,seriesMasterId&$orderby=start/dateTime&$top=${Math.min(maxItems, 100)}`;
 
   const events = await graphList<Event>(path, { maxItems });
 
-  return events.map((e) => ({
-    id: e.id,
-    subject: e.subject,
-    start: e.start.dateTime,
-    end: e.end.dateTime,
-    timeZone: e.start.timeZone,
-    location: e.location?.displayName,
-    organizer: e.organizer?.emailAddress?.address,
-    isOnlineMeeting: e.isOnlineMeeting,
-    meetingUrl: e.onlineMeetingUrl,
-    isAllDay: e.isAllDay,
-    response: e.responseStatus?.response,
-  }));
+  return events.map(toEventRow);
 }
 
 export async function getEvent(params: z.infer<typeof getEventSchema>) {
