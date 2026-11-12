@@ -799,6 +799,24 @@ export async function sendMail(params: z.infer<typeof sendMailSchema>) {
  * sometimes drops. A document with no <body> (or a bare fragment) just gets the
  * text in front, which is right for that shape.
  */
+/**
+ * The body of a threaded draft: our text above the quoted original Graph put
+ * in it. The quote is HTML almost always, also when our text is plain
+ * (`--no-html`). Then the draft stays HTML and the text is converted, since
+ * saving the quote as Text sends its markup to the recipient as raw tags.
+ */
+export function threadedDraftBody(
+  quoted: string,
+  quotedType: string | undefined,
+  body: string,
+  isHtml: boolean
+): { contentType: 'HTML' | 'Text'; content: string } {
+  const quoteIsHtml = quotedType ? quotedType.toLowerCase() === 'html' : looksLikeHtml(quoted);
+  if (isHtml) return { contentType: 'HTML', content: insertAtTopOfBody(quoted, body) };
+  if (quoteIsHtml) return { contentType: 'HTML', content: insertAtTopOfBody(quoted, textToHtml(body)) };
+  return { contentType: 'Text', content: `${body}\n\n${quoted}` };
+}
+
 export function insertAtTopOfBody(documentHtml: string, fragment: string): string {
   const open = /<body[^>]*>/i.exec(documentHtml);
   if (!open) return `${fragment}${documentHtml}`;
@@ -855,11 +873,8 @@ async function buildThreadedDraft(
   // The draft arrives holding the quoted original. Our text goes above it,
   // which is where a reply belongs and where every mail client puts it —
   // inside the returned document's <body>, not before its <html>.
-  const quoted = draft.body?.content ?? '';
-  const content = isHtml ? insertAtTopOfBody(quoted, bodyHtml) : `${bodyHtml}\n\n${quoted}`;
-
   const patch: Record<string, unknown> = {
-    body: { contentType: isHtml ? 'HTML' : 'Text', content },
+    body: threadedDraftBody(draft.body?.content ?? '', draft.body?.contentType, bodyHtml, isHtml),
   };
   if (toRecipients?.length) {
     patch.toRecipients = toRecipients.map((addr) => ({ emailAddress: { address: addr } }));
