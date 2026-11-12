@@ -298,7 +298,7 @@ Use `myoffice debug` to check version and auth state.
 
 - Version is tracked in `package.json`
 - Run `npm run build` after bumping the version
-- **`npm publish` is always a manual step, run by a person — never by Claude.** Claude bumps the version (`npm version patch|minor|major`), builds, tests and pushes the commit and tag when asked, then hands over with the exact command: `npm publish --access public`. Until that runs, `npx @awolve/myoffice@latest` still serves the old version
+- **`npm publish` is always a manual step, run by a person — never by Claude.** Claude bumps the version (`npm version patch|minor|major`), builds, tests and pushes the commit and tag when asked, then hands over with the exact command: `cd ~/code/ops-myoffice && npm publish --access public`. It is interactive (npm asks for a browser or one-time-code confirmation), so the person runs it in a separate terminal — not with `!` inside the Claude session. Until it runs, `npx @awolve/myoffice@latest` still serves the old version, and after it runs the new version takes a few minutes to show up in `npm view @awolve/myoffice version`
 
 ## Specs
 
